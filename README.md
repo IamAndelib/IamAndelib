@@ -1,6 +1,6 @@
 - 👋 Hi, I’m @IamAndelib
 - 👀 I’m interested in ... computers
-- 🌱 I’m currently learning ... C++ and python
+- 🌱 I’m currently learning ... C++, Python, HTML, CSS and JavaScript
 - 💞️ I’m looking to collaborate on ... making something amazing
 - 📫 How to reach me ... you don't have to
 
