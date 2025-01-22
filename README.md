@@ -2,7 +2,7 @@
 - 👀 I’m interested in ... computers
 - 🌱 I’m currently learning ... C++, Python, HTML, CSS and JavaScript
 - 💞️ I’m looking to collaborate on ... making something amazing
-- 📫 How to reach me ... you don't have to
+- 📫 How to reach me ... email me at: andelibtarefsrizon@gmail.com
 
 <!---
 IamAndelib/IamAndelib is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
