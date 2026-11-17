@@ -66,3 +66,10 @@ def test_fetch_failure_keeps_last_values(tmp_path, monkeypatch):
     new = json.loads(data.read_text())
     assert [(p["stars"], p["downloads"]) for p in new] == [(p["stars"], p["downloads"]) for p in PROJECTS]
     assert len(list(out.glob("*.svg"))) == 14
+
+
+@pytest.mark.parametrize("payload", [{}, {"stargazers_count": None}, [], "x"])
+def test_unexpected_api_shape_maps_to_stats_error(monkeypatch, payload):
+    monkeypatch.setattr(bc, "_get", lambda url, token=None: payload)
+    with pytest.raises(bc.StatsError):
+        bc.fetch_stats("Tally-android")

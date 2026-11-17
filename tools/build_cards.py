@@ -30,6 +30,13 @@ def _get(url, token):
 
 
 def fetch_stats(repo, token=None):
+    try:
+        return _fetch_stats(repo, token)
+    except (KeyError, TypeError, AttributeError) as e:
+        raise StatsError(f"{repo}: unexpected API response shape: {e!r}") from e
+
+
+def _fetch_stats(repo, token=None):
     info = _get(f"https://api.github.com/repos/{OWNER}/{repo}", token)
     downloads, page = 0, 1
     while True:
