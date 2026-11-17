@@ -95,6 +95,14 @@ def _brand(slug):
     return re.search(r'fill="(#[0-9A-Fa-f]+)"', svg).group(1).lower()
 
 
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_skills_width_fits_content(theme):
+    s = outputs(theme)["skills"]
+    vb = float(re.search(r'viewBox="0 0 ([\d.]+) ', s).group(1))
+    right = max(float(m.group(1)) + float(m.group(2)) for m in re.finditer(r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', s))
+    assert 0 <= vb - right <= 8 and vb <= 1200
+
+
 def test_mono_handling():
     # Java: mono, fg colour in both themes, brand colour never used
     for t in THEME_NAMES:

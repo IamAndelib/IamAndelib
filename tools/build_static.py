@@ -97,25 +97,27 @@ def render_banner(theme: str, mascot_svg: str) -> str:
 
 def render_skills(theme: str) -> str:
     t = THEMES[theme]
-    W, LABEL_W, X0, TILE_H, GAP, ROW_GAP = 1200, 150, 170, 36, 8, 18
-    body, y = "", 4
+    MAXW, X0, TILE_H, GAP, ROW_GAP = 1200, 170, 36, 8, 18
+    body, y, max_right = "", 4, 0
     for title, items in GROUPS:
         x, row_y, rows = X0, y, 1
         tiles = ""
         for name, slug, mode in items:
             tw = round(len(name) * 7.4 + 48)
-            if x + tw > W - 4 and x > X0:
+            if x + tw > MAXW - 4 and x > X0:
                 x, row_y, rows = X0, row_y + TILE_H + GAP, rows + 1
             paths, brand = _icon("skills", slug)
             fill = t["fg"] if mode == "mono" or (mode == "monodark" and theme == "dark") else (brand or t["fg"])
             tiles += (f'<rect x="{x}" y="{row_y}" width="{tw}" height="{TILE_H}" rx="8" fill="{t["surface"]}" stroke="{t["border"]}"/>'
                       f'<svg x="{x+8}" y="{row_y+8}" width="20" height="20" viewBox="0 0 24 24" fill="{fill}">{paths}</svg>'
                       f'<text x="{x+36}" y="{row_y+23}" class="nm">{esc(name)}</text>')
+            max_right = max(max_right, x + tw)
             x += tw + GAP
         gh = rows * TILE_H + (rows - 1) * GAP
         body += f'<text x="0" y="{y + gh/2 + 4:.1f}" class="lb">{esc(title)}</text>{tiles}\n'
         y += gh + ROW_GAP
     H = y - ROW_GAP + 4
+    W = max_right + 4
     css = (f".lb{{fill:{t['muted']};font:600 11px {FONT};letter-spacing:.06em;text-transform:uppercase}}"
            f".nm{{fill:{t['fg']};font:500 13px {FONT}}}")
     return _head(W, H, "Skills: languages, desktop and Linux, mobile and games, tooling", t) + f"<style>{css}</style>\n{body}</svg>\n"
