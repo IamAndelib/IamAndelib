@@ -1,0 +1,131 @@
+[
+  {
+    "slug": "tally",
+    "repo": "Tally-android",
+    "name": "Tally",
+    "pitch": "A pocket notebook for your money. One tap per expense, offline, no sign-up.",
+    "stack": [
+      "JavaScript",
+      "Java",
+      "Android"
+    ],
+    "platform": "F-Droid",
+    "link": "https://github.com/IamAndelib/Tally-android",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/tally.svg",
+    "stars": 33,
+    "downloads": 427
+  },
+  {
+    "slug": "tessera",
+    "repo": "Tessera",
+    "name": "Tessera",
+    "pitch": "Hyprland-style dwindle tiling for KDE Plasma 6, as a native KWin script.",
+    "stack": [
+      "TypeScript",
+      "QML",
+      "KWin"
+    ],
+    "platform": "KWin script",
+    "link": "https://github.com/IamAndelib/Tessera",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/tessera.png",
+    "stars": 14,
+    "downloads": 0
+  },
+  {
+    "slug": "kpeek",
+    "repo": "KPeek",
+    "name": "KPeek",
+    "pitch": "Quick Look for Dolphin. Press Meta+Space to preview almost any file.",
+    "stack": [
+      "C++",
+      "Qt 6",
+      "Kirigami",
+      "Flatpak"
+    ],
+    "platform": "KDE Store",
+    "link": "https://github.com/IamAndelib/KPeek",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/kpeek.svg",
+    "stars": 4,
+    "downloads": 181
+  },
+  {
+    "slug": "cyberjuke",
+    "repo": "CyberJuke",
+    "name": "CyberJuke",
+    "pitch": "Unofficial Android music app for the Cyberspace Jukebox, with 8 retro themes.",
+    "stack": [
+      "TypeScript",
+      "Preact",
+      "Kotlin",
+      "Media3"
+    ],
+    "platform": "Android APK",
+    "link": "https://github.com/IamAndelib/CyberJuke",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/cyberjuke.png",
+    "stars": 5,
+    "downloads": 106
+  },
+  {
+    "slug": "kde-snap-overlay",
+    "repo": "kde-snap-overlay",
+    "name": "kde-snap-overlay",
+    "pitch": "Windows-style Snap Layouts for KDE Plasma 6. Drag a window up, pick a zone.",
+    "stack": [
+      "QML",
+      "JavaScript",
+      "Wayland"
+    ],
+    "platform": "KDE Store",
+    "link": "https://github.com/IamAndelib/kde-snap-overlay",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/kde-snap-overlay.svg",
+    "stars": 2,
+    "downloads": 23
+  },
+  {
+    "slug": "window-geometry-restore",
+    "repo": "window-geometry-restore",
+    "name": "window-geometry-restore",
+    "pitch": "Puts your windows back where you left them, per desktop and monitor.",
+    "stack": [
+      "JavaScript",
+      "QML",
+      "KWin"
+    ],
+    "platform": "KDE Store",
+    "link": "https://github.com/IamAndelib/window-geometry-restore",
+    "status": "released",
+    "credit": null,
+    "logo": "assets/icons/projects/window-geometry-restore.svg",
+    "stars": 3,
+    "downloads": 45
+  },
+  {
+    "slug": "redux-video-player",
+    "repo": "Redux-Video-Player",
+    "name": "Redux Video Player",
+    "pitch": "A lean, Linux-only Flatpak video player on VLC 4, wearing Juxtopposed's redesign.",
+    "stack": [
+      "C/C++",
+      "Qt 6",
+      "QML",
+      "Flatpak"
+    ],
+    "platform": "Flatpak",
+    "link": "https://github.com/IamAndelib/Redux-Video-Player",
+    "status": "in-development",
+    "credit": "Juxtopposed",
+    "logo": "assets/icons/projects/redux-video-player.svg",
+    "stars": 0,
+    "downloads": 0
+  }
+]
