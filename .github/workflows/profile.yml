@@ -1,0 +1,88 @@
+name: profile
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'data/**'
+      - 'tools/**'
+      - '.github/workflows/profile.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Stats card (dark)
+        uses: stats-organization/github-readme-stats-action@2c498845f71017821efaad14293ebc736156ef21 # v2
+        with:
+          card: stats
+          options: username=IamAndelib&show_icons=true&include_all_commits=true&title_color=3fb950&text_color=e6edf3&icon_color=3fb950&bg_color=0d1117&border_color=30363d
+          path: profile/stats-dark.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+      - name: Stats card (light)
+        uses: stats-organization/github-readme-stats-action@2c498845f71017821efaad14293ebc736156ef21 # v2
+        with:
+          card: stats
+          options: username=IamAndelib&show_icons=true&include_all_commits=true&title_color=2ea043&text_color=1f2328&icon_color=2ea043&bg_color=ffffff&border_color=d0d7de
+          path: profile/stats-light.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+      - name: Top languages card (dark)
+        uses: stats-organization/github-readme-stats-action@2c498845f71017821efaad14293ebc736156ef21 # v2
+        with:
+          card: top-langs
+          options: username=IamAndelib&layout=compact&langs_count=8&exclude_repo=Flappy_Bird_Android,Redux-Video-Player&hide=html,css,makefile&title_color=3fb950&text_color=e6edf3&icon_color=3fb950&bg_color=0d1117&border_color=30363d
+          path: profile/top-langs-dark.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+      - name: Top languages card (light)
+        uses: stats-organization/github-readme-stats-action@2c498845f71017821efaad14293ebc736156ef21 # v2
+        with:
+          card: top-langs
+          options: username=IamAndelib&layout=compact&langs_count=8&exclude_repo=Flappy_Bird_Android,Redux-Video-Player&hide=html,css,makefile&title_color=2ea043&text_color=1f2328&icon_color=2ea043&bg_color=ffffff&border_color=d0d7de
+          path: profile/top-langs-light.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: true
+
+      - name: Snake
+        uses: Platane/snk/svg-only@d8f6715049803e982ee5ff501b6b9b7d5deeb09b # v3
+        with:
+          github_user_name: IamAndelib
+          outputs: |
+            profile/snake-light.svg?color_snake=#2ea043&color_dots=#e4e8ec,#aceebb,#4ac26b,#2da44e,#116329
+            profile/snake-dark.svg?color_snake=#7ee787&color_dots=#21262d,#0e4429,#006d32,#26a641,#39d353
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Build project cards
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/build_cards.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add profile assets/cards data
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "chore: refresh profile stats"
+          git pull --rebase
+          git push
