@@ -30,23 +30,24 @@
 
 ## 🌟 Featured projects
 
-<table>
-  <tr>
-    <td width="50%"><a href="https://github.com/IamAndelib/Tally-android"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/tally-dark.svg"><img src="assets/cards/tally-light.svg" alt="Tally" width="100%"></picture></a></td>
-    <td width="50%"><a href="https://github.com/IamAndelib/Tessera"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/tessera-dark.svg"><img src="assets/cards/tessera-light.svg" alt="Tessera" width="100%"></picture></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="https://github.com/IamAndelib/KPeek"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/kpeek-dark.svg"><img src="assets/cards/kpeek-light.svg" alt="KPeek" width="100%"></picture></a></td>
-    <td width="50%"><a href="https://github.com/IamAndelib/CyberJuke"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/cyberjuke-dark.svg"><img src="assets/cards/cyberjuke-light.svg" alt="CyberJuke" width="100%"></picture></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="https://github.com/IamAndelib/kde-snap-overlay"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/kde-snap-overlay-dark.svg"><img src="assets/cards/kde-snap-overlay-light.svg" alt="kde-snap-overlay" width="100%"></picture></a></td>
-    <td width="50%"><a href="https://github.com/IamAndelib/window-geometry-restore"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/window-geometry-restore-dark.svg"><img src="assets/cards/window-geometry-restore-light.svg" alt="window-geometry-restore" width="100%"></picture></a></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><a href="https://github.com/IamAndelib/Redux-Video-Player"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/redux-video-player-dark.svg"><img src="assets/cards/redux-video-player-light.svg" alt="Redux Video Player" width="50%"></picture></a></td>
-  </tr>
-</table>
+<p align="center">
+<a href="https://github.com/IamAndelib/Tally-android"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/tally-dark.svg"><img src="assets/cards/tally-light.svg" alt="Tally" width="49%"></picture></a>
+<a href="https://github.com/IamAndelib/Tessera"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/tessera-dark.svg"><img src="assets/cards/tessera-light.svg" alt="Tessera" width="49%"></picture></a>
+</p>
+
+<p align="center">
+<a href="https://github.com/IamAndelib/KPeek"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/kpeek-dark.svg"><img src="assets/cards/kpeek-light.svg" alt="KPeek" width="49%"></picture></a>
+<a href="https://github.com/IamAndelib/CyberJuke"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/cyberjuke-dark.svg"><img src="assets/cards/cyberjuke-light.svg" alt="CyberJuke" width="49%"></picture></a>
+</p>
+
+<p align="center">
+<a href="https://github.com/IamAndelib/kde-snap-overlay"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/kde-snap-overlay-dark.svg"><img src="assets/cards/kde-snap-overlay-light.svg" alt="kde-snap-overlay" width="49%"></picture></a>
+<a href="https://github.com/IamAndelib/window-geometry-restore"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/window-geometry-restore-dark.svg"><img src="assets/cards/window-geometry-restore-light.svg" alt="window-geometry-restore" width="49%"></picture></a>
+</p>
+
+<p align="center">
+<a href="https://github.com/IamAndelib/Redux-Video-Player"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/cards/redux-video-player-dark.svg"><img src="assets/cards/redux-video-player-light.svg" alt="Redux Video Player" width="49%"></picture></a>
+</p>
 
 ## 🧰 Toolbox
 
@@ -68,7 +69,7 @@
 ## 📫 Find me
 
 <p align="center">
-<a href="https://github.com/IamAndelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/github-dark.svg"><img src="assets/links/github-light.svg" alt="GitHub" width="150"></picture></a> <a href="https://gitlab.com/IamAndelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/gitlab-dark.svg"><img src="assets/links/gitlab-light.svg" alt="GitLab" width="150"></picture></a> <a href="https://www.linkedin.com/in/andelibababa/"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/linkedin-dark.svg"><img src="assets/links/linkedin-light.svg" alt="LinkedIn" width="150"></picture></a> <a href="mailto:andelibtarefsrizon@gmail.com"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/email-dark.svg"><img src="assets/links/email-light.svg" alt="Email" width="150"></picture></a> <a href="https://ko-fi.com/iamandelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/kofi-dark.svg"><img src="assets/links/kofi-light.svg" alt="Ko-fi" width="150"></picture></a>
+<a href="https://github.com/IamAndelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/github-dark.svg"><img src="assets/links/github-light.svg" alt="GitHub" height="36"></picture></a> <a href="https://gitlab.com/IamAndelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/gitlab-dark.svg"><img src="assets/links/gitlab-light.svg" alt="GitLab" height="36"></picture></a> <a href="https://www.linkedin.com/in/andelibababa/"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/linkedin-dark.svg"><img src="assets/links/linkedin-light.svg" alt="LinkedIn" height="36"></picture></a> <a href="mailto:andelibtarefsrizon@gmail.com"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/email-dark.svg"><img src="assets/links/email-light.svg" alt="Email" height="36"></picture></a> <a href="https://ko-fi.com/iamandelib"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/links/kofi-dark.svg"><img src="assets/links/kofi-light.svg" alt="Ko-fi" height="36"></picture></a>
 </p>
 
 <p align="center">andelibtarefsrizon@gmail.com</p>
