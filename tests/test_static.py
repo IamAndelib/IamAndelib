@@ -38,7 +38,8 @@ def test_valid_xml_and_clean(theme, key):
 def test_banner_content_and_motion(theme):
     s = outputs(theme)["banner"]
     assert "Andelib Taref Ababa" in s
-    assert "Linux desktop hacker · Android developer" in s
+    assert ">Open source software developer</text>" in s
+    assert "hacker" not in s.lower()
     for pill in ("KDE Plasma tools", "Android apps", "Linux fixes &amp; packaging"):
         assert pill in s
     assert 'viewBox="0 0 1200 340"' in s
@@ -107,7 +108,7 @@ def test_banner_draws_every_live_cell(theme):
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
 def test_banner_size_budget(theme):
-    assert len(outputs(theme)["banner"].encode()) <= 130_000
+    assert len(outputs(theme)["banner"].encode()) <= 135_000
 
 
 def test_themes_differ_in_background():
@@ -236,3 +237,60 @@ def test_banner_grid_visible(theme, minimum):
     assert _contrast(t["grid"], t["pond_a"]) >= minimum
     s = outputs(theme)["banner"]
     assert f".bn-grid{{fill:{t['grid']}}}" in s
+
+
+STAR_RE = re.compile(r'<rect class="st( halo)?" x="(\d+)" y="(\d+)" width="8" height="8" style="animation-duration:([\d.]+)s;animation-delay:(-?[\d.]+)s(?:;--p:[\d.]+)?"/>')
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_stars_scattered_not_crowded(theme):
+    s = outputs(theme)["banner"]
+    stars = STAR_RE.findall(s)
+    cores = [st for st in stars if not st[0]]
+    assert 22 <= len(cores) <= 40
+    xs = [int(x) for _, x, _, _, _ in cores]
+    assert min(xs) < 400 and max(xs) > 1000  # spread across the banner, not one corner
+    cells = [((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL) for _, x, y, _, _ in stars]
+    assert len(cells) == len(set(cells))  # no overlapping squares
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_stars_avoid_text_and_window(theme):
+    s = outputs(theme)["banner"]
+    cx, cy, r = penrose.WINDOW
+    for _, x, y, _, _ in STAR_RE.findall(s):
+        x0, y0 = int(x) - 1, int(y) - 1
+        x1, y1 = x0 + bs.CELL, y0 + bs.CELL
+        assert 0 <= x0 and x1 <= 1200 and 0 <= y0 and y1 <= 340
+        for bx0, by0, bx1, by1 in bs.TEXT_BOXES:
+            assert x1 <= bx0 - 12 or x0 >= bx1 + 12 or y1 <= by0 - 12 or y0 >= by1 + 12, (x, y)
+        assert abs(complex(x0 + 5 - cx, y0 + 5 - cy)) >= r + 12, (x, y)
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_stars_twinkle_softly_and_respect_reduced_motion(theme):
+    s = outputs(theme)["banner"]
+    assert "@keyframes twinkle" in s and "ease-in-out" in s
+    durs = {float(d) for *_, d, _ in STAR_RE.findall(s)}
+    assert len(durs) > 5 and min(durs) >= 3 and max(durs) <= 12  # unsynchronised, slow
+    m = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\}\s*\}", s, re.S)
+    assert ".st" in m.group(1)
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_tiles_stand_out_from_grid(theme):
+    # both rhomb shapes must be clearly distinct from an empty grid square
+    grid = THEMES[theme]["grid"]
+    for shape, fill in bs.shape_fills(theme).items():
+        assert _contrast(fill, grid) >= 1.8, (shape, fill)
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_animation_rules_cascade_in_order(theme):
+    # the .c shorthand must come before the .kN / .dN longhands, or browsers show a frozen frame 0
+    s = outputs(theme)["banner"]
+    assert s.index(".c{animation:") < s.index(".k0{animation-name:k0}") < s.index(".d1{animation-delay:")
+    for k in re.findall(r"\.(k\d+)\{animation-name:(k\d+)\}", s):
+        assert k[0] == k[1]
+    names = set(re.findall(r"\.(k\d+)\{animation-name", s))
+    assert names == set(re.findall(r"@keyframes (k\d+)", s))

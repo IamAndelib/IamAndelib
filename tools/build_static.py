@@ -51,6 +51,8 @@ def _head(w, h, label, t):
 
 CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
 FRAME_S = 0.2  # seconds per frame of the Penrose zoom
+TAGLINE = "Open source software developer"
+STARS, GLOWS = 30, 6  # twinkling cells across the empty banner; GLOWS of them get a soft 4-cell halo
 PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
 PILL_X0, PILL_Y, PILL_H = 412, 226, 36
 
@@ -76,7 +78,7 @@ def banner_frames():
 
 def shape_fills(theme: str):
     t = THEMES[theme]
-    return {0: t["g2"], 1: t["g4"]} if theme == "dark" else {0: t["g1"], 1: t["g3"]}
+    return {0: t["g2"], 1: t["g4"]}  # thin, thick; g2/g4 read well against the grid in both themes
 
 
 def _fade(cx, cy):
@@ -103,7 +105,7 @@ def _zoom_cells(theme):
                 canon[key] = f"k{len(canon)}"
             cls += f" {canon[key]} d{(n - shift) % n}"
         op = _fade(cx, cy)
-        opacity = f' opacity="{op:.2f}"'.replace('"0.', '".') if op < 1 else ""
+        opacity = f' opacity="{op:.1f}"'.replace('"0.', '".') if op < 1 else ""
         groups.setdefault((cls, opacity), []).append(f"M{cx * CELL + 1} {cy * CELL + 1}h{CELL - 2}v{CELL - 2}h-{CELL - 2}z")
     # cells sharing class and opacity are one path: ~15 bytes per square instead of a <rect> each
     paths = "".join(f'<path class="{cls}"{opacity} d="{"".join(sq)}"/>' for (cls, opacity), sq in groups.items())
@@ -117,6 +119,44 @@ def _zoom_cells(theme):
                  for i, v in enumerate(key) if i == 0 or v != key[i - 1]]
         kf += f"@keyframes {name}{{{''.join(stops)}100%{{fill:{fill(key[0])}}}}}\n"
     return paths, kf
+
+
+def _stars():
+    """Scattered grid cells that slowly fade in and out: (cell x, cell y, duration s, delay s, has halo)."""
+    import random
+    rnd = random.Random(11)
+    cx, cy, radius = penrose.WINDOW
+    cols, rows = 1200 // CELL, 340 // CELL
+
+    def clear(x, y, pad):  # cell (with `pad` cells of halo around it) avoids text, window and edges
+        x0, y0, x1, y1 = (x - pad) * CELL, (y - pad) * CELL, (x + pad + 1) * CELL, (y + pad + 1) * CELL
+        if x0 < 0 or y0 < 0 or x1 > 1200 or y1 > 340:
+            return False
+        if any(not (x1 <= bx0 - 12 or x0 >= bx1 + 12 or y1 <= by0 - 12 or y0 >= by1 + 12) for bx0, by0, bx1, by1 in TEXT_BOXES):
+            return False
+        return abs(complex((x + 0.5) * CELL - cx, (y + 0.5) * CELL - cy)) >= radius + 12 + pad * CELL * 1.5
+
+    out, tries = [], 0
+    while len(out) < STARS and tries < 20000:
+        tries += 1
+        x, y = rnd.randrange(cols), rnd.randrange(rows)
+        glow = sum(o[4] for o in out) < GLOWS and rnd.random() < 0.3
+        if not clear(x, y, 1 if glow else 0) or any(abs(x - o[0]) + abs(y - o[1]) < 9 for o in out):
+            continue
+        dur = round(rnd.uniform(4, 10), 1)
+        out.append((x, y, dur, round(-rnd.uniform(0, dur), 1), glow))
+    return out
+
+
+def _star_rects():
+    sq = lambda x, y, cls, dur, delay: (f'<rect class="{cls}" x="{x * CELL + 1}" y="{y * CELL + 1}" width="{CELL - 2}" '
+                                        f'height="{CELL - 2}" style="animation-duration:{dur:g}s;animation-delay:{delay:g}s"/>')
+    out = ""
+    for x, y, dur, delay, glow in _stars():
+        out += sq(x, y, "st", dur, delay)
+        if glow:
+            out += "".join(sq(x + dx, y + dy, "st halo", dur, delay) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    return out
 
 
 def render_banner(theme: str) -> str:
@@ -136,17 +176,20 @@ def render_banner(theme: str) -> str:
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
 .bn-pill{{fill:{t['bg']};stroke-width:1.5}}
 .bn-pilltext{{font:600 15px {FONT};fill:{t['fg']}}}
-{keyframes}@media (prefers-reduced-motion: reduce){{.c{{animation:none!important}}}}
+.st{{fill:{fills[1]};opacity:.35;animation:twinkle 6s ease-in-out infinite}} .halo{{animation-name:halo}}
+@keyframes twinkle{{0%,100%{{opacity:.06}}50%{{opacity:.9}}}}
+@keyframes halo{{0%,100%{{opacity:0}}50%{{opacity:.3}}}}
+{keyframes}@media (prefers-reduced-motion: reduce){{.c,.st{{animation:none!important}}}}
 """
-    return (_head(1200, 340, "Andelib Taref Ababa, Linux desktop hacker and Android developer", t) + "\n"
+    return (_head(1200, 340, f"Andelib Taref Ababa, {TAGLINE}", t) + "\n"
             f"<style>{css}</style>\n"
             f'<defs><pattern id="grid" width="{CELL}" height="{CELL}" patternUnits="userSpaceOnUse">'
             f'<rect class="bn-grid" x="1" y="1" width="{CELL - 2}" height="{CELL - 2}" rx="1.5"/></pattern></defs>\n'
             f'<rect class="bn-bg" width="1200" height="340"/>\n'
             '<rect width="1200" height="340" fill="url(#grid)"/>\n'
-            f'<g shape-rendering="crispEdges">{cells}</g>\n'
+            f'<g shape-rendering="crispEdges">{_star_rects()}{cells}</g>\n'
             '<text class="bn-name" x="410" y="148">Andelib Taref Ababa</text>\n'
-            '<text class="bn-tag" x="412" y="192">Linux desktop hacker · Android developer</text>\n'
+            f'<text class="bn-tag" x="412" y="192">{esc(TAGLINE)}</text>\n'
             f"{pill_svg}\n</svg>\n")
 
 

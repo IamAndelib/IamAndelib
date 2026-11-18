@@ -1,6 +1,6 @@
 <!-- banner -->
 <p align="center">
-<picture><source media="(prefers-color-scheme: dark)" srcset="assets/banner/banner-dark.svg"><img src="assets/banner/banner-light.svg" alt="Andelib Taref Ababa: Linux desktop hacker, Android developer" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="assets/banner/banner-dark.svg"><img src="assets/banner/banner-light.svg" alt="Andelib Taref Ababa: Open source software developer" width="100%"></picture>
 </p>
 
 <!-- intro -->
