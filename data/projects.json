@@ -14,8 +14,8 @@
     "status": "released",
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
-    "stars": 33,
-    "downloads": 428
+    "stars": 34,
+    "downloads": 433
   },
   {
     "slug": "tessera",
@@ -52,7 +52,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kpeek.svg",
     "stars": 4,
-    "downloads": 181
+    "downloads": 182
   },
   {
     "slug": "cyberjuke",
@@ -107,7 +107,7 @@
     "credit": null,
     "logo": "assets/icons/projects/window-geometry-restore.svg",
     "stars": 3,
-    "downloads": 45
+    "downloads": 49
   },
   {
     "slug": "redux-video-player",
