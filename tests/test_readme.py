@@ -35,10 +35,18 @@ def test_no_private_repo_links():
 
 def test_contact_links_present():
     text = README.read_text()
-    for u in ("https://github.com/IamAndelib", "https://gitlab.com/IamAndelib",
+    for u in ("https://iamandelib.github.io", "https://gitlab.com/IamAndelib",
               "https://www.linkedin.com/in/andelibababa/",
-              "andelibtarefsrizon@gmail.com", "https://ko-fi.com/iamandelib"):
+              "mailto:andelibtarefsrizon@gmail.com", "https://ko-fi.com/iamandelib"):
         assert u in text, u
+
+
+def test_no_redundant_contacts():
+    text = README.read_text()
+    # visitors are already on the GitHub profile, so no button back to it
+    assert 'href="https://github.com/IamAndelib"' not in text
+    # the Email button carries the address; it isn't repeated as plain text
+    assert text.count("andelibtarefsrizon@gmail.com") == 1
 
 
 def test_checker_flags_bad_input(tmp_path):

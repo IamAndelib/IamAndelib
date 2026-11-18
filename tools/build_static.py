@@ -31,7 +31,6 @@ TERMINAL = ('<path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1
 # name -> (label, icon file slug or None, inline path, brand colour or None for fg)
 LINKS = {
     "website": ("Website", None, TERMINAL, "#3fb950"),
-    "github": ("GitHub", "github", None, None),
     "gitlab": ("GitLab", "gitlab", None, "icon"),
     "linkedin": ("LinkedIn", None, LINKEDIN, "#0A66C2"),
     "email": ("Email", None, MAIL, "#3fb950"),

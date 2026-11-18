@@ -10,7 +10,7 @@ from theme import THEMES  # noqa: E402
 import pytest  # noqa: E402
 
 THEME_NAMES = ["dark", "light"]
-LINK_NAMES = ["github", "gitlab", "linkedin", "email", "kofi"]
+LINK_NAMES = ["website", "gitlab", "linkedin", "email", "kofi"]
 
 
 def outputs(theme):
@@ -135,7 +135,7 @@ def test_icon_files_exist():
     for slug in names:
         p = ROOT / "assets/icons/skills" / f"{slug}.svg"
         assert p.exists() and p.stat().st_size > 100, p
-    for slug in ("github", "gitlab", "kofi"):
+    for slug in ("gitlab", "kofi"):
         p = ROOT / "assets/icons/links" / f"{slug}.svg"
         assert p.exists() and p.stat().st_size > 300, p
 
@@ -377,3 +377,9 @@ def test_readme_uses_current_banner_files():
         assert f"assets/banner/{bs.BANNER_NAME}-{t}.svg" in readme
         assert (ROOT / "assets/banner" / f"{bs.BANNER_NAME}-{t}.svg").read_text() == bs.render_banner(t)
     assert sorted(p.name for p in (ROOT / "assets/banner").iterdir()) == sorted(f"{bs.BANNER_NAME}-{t}.svg" for t in THEME_NAMES)
+
+
+def test_no_github_link_button():
+    # the README is shown on the GitHub profile itself, so a GitHub button would point back to the same page
+    assert "github" not in bs.LINKS
+    assert not list((ROOT / "assets/links").glob("github-*.svg"))
