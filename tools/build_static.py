@@ -54,6 +54,7 @@ def _head(w, h, label, t):
 CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
 FRAME_S = 0.2  # seconds per frame of the Penrose zoom
 TAGLINE = "Open source software developer"
+BANNER_NAME = "penrose"  # file stem; change it whenever the banner art changes so cached copies can't linger
 RAYS = 50  # radiation particles leaving the Penrose window ("Hawking radiation")
 RAY_SEED = 3
 RAY_TRAVEL = 750  # px a particle covers in one flight (most leave the banner sooner)
@@ -281,7 +282,7 @@ def main() -> int:
     for d in ("banner", "skills", "links"):
         (OUT / d).mkdir(parents=True, exist_ok=True)
     for theme in THEMES:
-        (OUT / "banner" / f"banner-{theme}.svg").write_text(render_banner(theme))
+        (OUT / "banner" / f"{BANNER_NAME}-{theme}.svg").write_text(render_banner(theme))
         (OUT / "skills" / f"skills-{theme}.svg").write_text(render_skills(theme))
         for n in LINKS:
             (OUT / "links" / f"{n}-{theme}.svg").write_text(render_link(n, theme))

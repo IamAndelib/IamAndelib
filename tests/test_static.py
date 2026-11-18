@@ -179,7 +179,7 @@ def test_main_writes_files(tmp_path, monkeypatch):
     monkeypatch.setattr(bs, "OUT", tmp_path)
     assert bs.main() == 0
     for t in THEME_NAMES:
-        assert (tmp_path / "banner" / f"banner-{t}.svg").exists()
+        assert (tmp_path / "banner" / f"{bs.BANNER_NAME}-{t}.svg").exists()
         assert (tmp_path / "skills" / f"skills-{t}.svg").exists()
         for n in LINK_NAMES:
             assert (tmp_path / "links" / f"{n}-{t}.svg").exists()
@@ -368,3 +368,12 @@ def test_animation_rules_cascade_in_order(theme):
         assert k[0] == k[1]
     names = set(re.findall(r"\.(k\d+)\{animation-name", s))
     assert names == set(re.findall(r"@keyframes (k\d+)", s))
+
+
+def test_readme_uses_current_banner_files():
+    # the banner file name changes when the art changes, so no browser or CDN can show a stale copy
+    readme = (ROOT / "README.md").read_text()
+    for t in THEME_NAMES:
+        assert f"assets/banner/{bs.BANNER_NAME}-{t}.svg" in readme
+        assert (ROOT / "assets/banner" / f"{bs.BANNER_NAME}-{t}.svg").read_text() == bs.render_banner(t)
+    assert sorted(p.name for p in (ROOT / "assets/banner").iterdir()) == sorted(f"{bs.BANNER_NAME}-{t}.svg" for t in THEME_NAMES)
