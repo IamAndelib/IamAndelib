@@ -1,5 +1,4 @@
 """Build the standalone banner, skills strip and link-button SVGs (dark + light)."""
-import functools
 import html
 import re
 import sys
@@ -7,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from theme import FONT, THEMES  # noqa: E402
-import life  # noqa: E402
+import penrose  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
@@ -50,9 +49,8 @@ def _head(w, h, label, t):
             f'role="img" aria-label="{esc(label)}">')
 
 
-CELL = 10  # banner Life cell pitch in px (8 px square + 2 px gap)
-GUN_AT = (1, 7)  # gun box top-left, in cells; stream leaves through the bottom edge left of the pills
-GEN_S = 0.25  # seconds per generation
+CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
+FRAME_S = 0.2  # seconds per frame of the Penrose zoom
 PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
 PILL_X0, PILL_Y, PILL_H = 412, 226, 36
 
@@ -71,39 +69,54 @@ TEXT_BOXES = [(410, 100, 1050, 162), (412, 172, 905, 198)] + [
     (x, PILL_Y, x + w, PILL_Y + PILL_H) for x, w, _, _ in _pill_layout()]
 
 
-@functools.lru_cache(maxsize=None)
 def banner_frames():
-    """One loop of the glider gun in banner cell coordinates: 31 frames, frame 0 == frame 30."""
-    gx, gy = GUN_AT
-    cols, rows = 1200 // CELL, 340 // CELL
-    seed = frozenset((x + gx, y + gy) for x, y in life.GOSPER_GUN)
-    return tuple(life.steady_cycle(seed, warmup=300, period=30,
-                                   keep=lambda x, y: 0 <= x < cols and 0 <= y < rows))
+    """One loop of the Penrose zoom: cell -> rhomb shape per frame; the last frame equals the first."""
+    return penrose.zoom_frames()
 
 
-def _life_cells(t):
+def shape_fills(theme: str):
+    t = THEMES[theme]
+    return {0: t["g2"], 1: t["g4"]} if theme == "dark" else {0: t["g1"], 1: t["g3"]}
+
+
+def _fade(cx, cy):
+    """Soft edges for the round window: fade toward the rim and toward the empty core."""
+    x0, y0, radius = penrose.WINDOW
+    r = abs(complex((cx + 0.5) * CELL - x0, (cy + 0.5) * CELL - y0))
+    return max(0.15, min(1.0, (radius - r) / 45, 0.25 + (r - penrose.CORE) / 60))
+
+
+def _zoom_cells(theme):
+    fills = shape_fills(theme)
     frames = banner_frames()[:-1]
     n = len(frames)
-    canon, rects = {}, []  # canonical timeline -> keyframes name
+    canon, groups = {}, {}  # canonical timeline -> keyframes name; (class, opacity) -> squares
     for cx, cy in sorted(set().union(*frames), key=lambda c: (c[1], c[0])):
-        tl = tuple((cx, cy) in f for f in frames)
-        cls = "c" if tl[0] else "c off"
-        style = ""
-        if not all(tl):
+        tl = tuple(f.get((cx, cy)) for f in frames)
+        cls = "c off" if tl[0] is None else f"c s{tl[0]}"
+        if len(set(tl)) > 1:
             # share one @keyframes between timelines that are time-shifts of each other
             rots = [tl[s:] + tl[:s] for s in range(n)]
-            key = min(rots)
+            key = min(rots, key=lambda r: tuple(-1 if v is None else v for v in r))
             shift = rots.index(key)
             if key not in canon:
                 canon[key] = f"k{len(canon)}"
-            style = f' style="animation:{canon[key]} {n * GEN_S:g}s step-end infinite;animation-delay:{-((n - shift) % n) * GEN_S:g}s"'
-        rects.append(f'<rect class="{cls}" x="{cx * CELL + 1}" y="{cy * CELL + 1}" width="{CELL - 2}" height="{CELL - 2}"{style}/>')
-    kf = ""
+            cls += f" {canon[key]} d{(n - shift) % n}"
+        op = _fade(cx, cy)
+        opacity = f' opacity="{op:.2f}"'.replace('"0.', '".') if op < 1 else ""
+        groups.setdefault((cls, opacity), []).append(f"M{cx * CELL + 1} {cy * CELL + 1}h{CELL - 2}v{CELL - 2}h-{CELL - 2}z")
+    # cells sharing class and opacity are one path: ~15 bytes per square instead of a <rect> each
+    paths = "".join(f'<path class="{cls}"{opacity} d="{"".join(sq)}"/>' for (cls, opacity), sq in groups.items())
+    # shared timing; each cell picks a keyframe set (kN) and a start offset (dN)
+    kf = f".c{{animation:{n * FRAME_S:g}s step-end infinite}}\n"
+    kf += "".join(f".{name}{{animation-name:{name}}}" for name in canon.values()) + "\n"
+    kf += "".join(f".d{i}{{animation-delay:{-i * FRAME_S:g}s}}" for i in range(n)) + "\n"
     for key, name in canon.items():
-        stops = [f"{i * 100 / n:.3f}".rstrip("0").rstrip(".") + f"%{{opacity:{int(v)}}}"
+        fill = lambda v: "#0000" if v is None else fills[v]
+        stops = [f"{i * 100 / n:.3f}".rstrip("0").rstrip(".") + f"%{{fill:{fill(v)}}}"
                  for i, v in enumerate(key) if i == 0 or v != key[i - 1]]
-        kf += f"@keyframes {name}{{{''.join(stops)}100%{{opacity:{int(key[0])}}}}}\n"
-    return "".join(rects), kf
+        kf += f"@keyframes {name}{{{''.join(stops)}100%{{fill:{fill(key[0])}}}}}\n"
+    return paths, kf
 
 
 def render_banner(theme: str) -> str:
@@ -114,10 +127,11 @@ def render_banner(theme: str) -> str:
         pill_svg += (f'<rect class="bn-pill" x="{px}" y="{PILL_Y}" width="{w}" height="{PILL_H}" rx="18" style="stroke:{color}"/>'
                      f'<circle cx="{px+17}" cy="244" r="4" style="fill:{color}"/>'
                      f'<text class="bn-pilltext" x="{px+28}" y="249">{esc(text)}</text>')
-    cells, keyframes = _life_cells(t)
+    cells, keyframes = _zoom_cells(theme)
+    fills = shape_fills(theme)
     css = f"""
 .bn-bg{{fill:{t['pond_a']}}} .bn-grid{{fill:{t['grid']}}}
-.c{{fill:{t['g3']}}} .off{{opacity:0}}
+.s0{{fill:{fills[0]}}} .s1{{fill:{fills[1]}}} .off{{fill:#0000}}
 .bn-name{{fill:{t['fg']};font:800 54px {FONT};letter-spacing:-.5px}}
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
 .bn-pill{{fill:{t['bg']};stroke-width:1.5}}

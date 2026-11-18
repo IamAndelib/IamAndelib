@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import build_static as bs  # noqa: E402
+import penrose  # noqa: E402
 from theme import THEMES  # noqa: E402
 
 import pytest  # noqa: E402
@@ -49,7 +50,19 @@ def test_banner_content_and_motion(theme):
     assert s == bs.render_banner(theme)
 
 
-CELL_RE = re.compile(r'<rect class="(c[^"]*)" x="([\d.]+)" y="([\d.]+)" width="(\d+)" height="\4"')
+CELL_PATH_RE = re.compile(r'<path class="(c [^"]+)"(?: opacity="[\d.]+")? d="([^"]+)"/>')
+
+
+def _cells_by_class(svg):
+    """cell -> class string, from the merged cell paths (each square is 'Mx yh8v8h-8z')."""
+    out = {}
+    for cls, d in CELL_PATH_RE.findall(svg):
+        for x, y in re.findall(r"M(\d+) (\d+)h8v8h-8z", d):
+            cell = ((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL)
+            assert cell not in out, cell
+            out[cell] = cls
+        assert re.fullmatch(r"(M\d+ \d+h8v8h-8z)+", d), d
+    return out
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
@@ -61,7 +74,7 @@ def test_banner_has_no_mascot(theme):
 
 def test_banner_loop_seamless():
     frames = bs.banner_frames()
-    assert len(frames) == 31
+    assert len(frames) == penrose.FRAMES + 1
     assert frames[0] == frames[-1]
 
 
@@ -84,18 +97,17 @@ def test_text_boxes_cover_pills():
 @pytest.mark.parametrize("theme", THEME_NAMES)
 def test_banner_draws_every_live_cell(theme):
     s = outputs(theme)["banner"]
-    cells = {(round((float(x) - 1) / bs.CELL), round((float(y) - 1) / bs.CELL)): cls for cls, x, y, _ in CELL_RE.findall(s)}
+    cells = _cells_by_class(s)
     frames = bs.banner_frames()
     assert set(cells) == set().union(*frames)
-    # without animation (reduced motion) the visible cells are exactly frame 0: gun plus gliders in flight
-    shown = {c for c, cls in cells.items() if "off" not in cls.split()}
-    assert shown == frames[0] and len(shown) > 36
-    assert THEMES[theme]["g3"] in s
+    # without animation (reduced motion) the drawn cells and their shapes are exactly frame 0
+    base = {c: int(cls.split()[1][1]) for c, cls in cells.items() if cls.split()[1] in ("s0", "s1")}
+    assert base == frames[0] and len(base) > 200
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
 def test_banner_size_budget(theme):
-    assert len(outputs(theme)["banner"].encode()) <= 80_000
+    assert len(outputs(theme)["banner"].encode()) <= 130_000
 
 
 def test_themes_differ_in_background():
@@ -172,30 +184,41 @@ def test_main_writes_files(tmp_path, monkeypatch):
             assert (tmp_path / "links" / f"{n}-{t}.svg").exists()
 
 
-def _css_state(svg, gen):
-    """Which cells the CSS shows during generation `gen` (evaluates our step-end keyframes)."""
-    kfs = {}
-    for name, body in re.findall(r"@keyframes (k\d+)\{(.*?)\}\n", svg):
-        kfs[name] = [(float(p), o == "1") for p, o in re.findall(r"([\d.]+)%\{opacity:(\d)\}", body)]
-    shown = set()
-    for m in re.finditer(r'<rect class="(c[^"]*)" x="([\d.]+)" y="([\d.]+)"[^>]*?(?:style="animation:(k\d+) ([\d.]+)s step-end infinite;animation-delay:(-?[\d.]+)s")?/>', svg):
-        cls, x, y, name, dur, delay = m.groups()
-        cell = (round((float(x) - 1) / bs.CELL), round((float(y) - 1) / bs.CELL))
+def _css_state(svg, frame, theme):
+    """Cell -> shape the CSS shows during `frame` (evaluates our step-end fill keyframes)."""
+    fills = bs.shape_fills(theme)
+    shape_of = {fills[0]: 0, fills[1]: 1, "#0000": None}
+    kfs = {name: [(float(p), shape_of[f]) for p, f in re.findall(r"([\d.]+)%\{fill:(#\w+)\}", body)]
+           for name, body in re.findall(r"@keyframes (k\d+)\{(.*?)\}\n", svg)}
+    dur = float(re.search(r"\.c\{animation:([\d.]+)s step-end infinite", svg).group(1))
+    delays = {d: float(v) for d, v in re.findall(r"\.(d\d+)\{animation-delay:(-?[\d.]+)s\}", svg)}
+    shown = {}
+    for cell, cls in _cells_by_class(svg).items():
+        parts = cls.split()
+        name = next((c for c in parts if c.startswith("k")), None)
         if not name:
-            on = "off" not in cls.split()
+            shape = None if "off" in parts else int(parts[1][1])
         else:
-            t = (((gen + 0.5) * bs.GEN_S - float(delay)) % float(dur)) / float(dur) * 100  # mid-generation
-            on = [o for p, o in kfs[name] if p <= t][-1]
-        if on:
-            shown.add(cell)
+            delay = delays[next(c for c in parts if c.startswith("d"))]
+            t = (((frame + 0.5) * bs.FRAME_S - delay) % dur) / dur * 100  # mid-frame
+            shape = [v for p, v in kfs[name] if p <= t][-1]
+        if shape is not None:
+            shown[cell] = shape
     return shown
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
-def test_banner_css_matches_simulation(theme):
+def test_banner_css_matches_frames(theme):
     s = outputs(theme)["banner"]
-    for gen, frame in enumerate(bs.banner_frames()):
-        assert _css_state(s, gen) == set(frame), gen
+    for i, frame in enumerate(bs.banner_frames()):
+        assert _css_state(s, i, theme) == frame, i
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_banner_shapes_distinct(theme):
+    f = bs.shape_fills(theme)
+    assert f[0] != f[1]
+    assert _contrast(f[0], f[1]) >= 1.5
 
 
 def _contrast(a, b):
