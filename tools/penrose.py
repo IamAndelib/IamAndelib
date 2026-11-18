@@ -15,7 +15,7 @@ import math
 PHI = (1 + 5 ** 0.5) / 2
 CELL = 10                      # px; same grid as the banner
 COLS, ROWS = 42, 34            # area scanned for the window (px 0..420 x 0..340)
-WINDOW = (195, 170, 168)       # round window: centre x, centre y, radius (px)
+WINDOW = (230, 170, 150)       # round window: centre x, centre y, radius (px); 80 px clear on the left
 SCALE = 190                    # px per wheel unit at the start of the loop
 BASE_LEVEL = 2                 # level at world radius ~1, i.e. the window's rim at loop start (tile edge ~72 px)
 CORE = 34                      # px; empty centre, where tiles would be too small for the grid

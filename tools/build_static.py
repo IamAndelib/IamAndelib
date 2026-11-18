@@ -54,12 +54,13 @@ def _head(w, h, label, t):
 CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
 FRAME_S = 0.2  # seconds per frame of the Penrose zoom
 TAGLINE = "Open source software developer"
-RAYS = 40  # radiation particles leaving the Penrose window ("Hawking radiation")
+RAYS = 50  # radiation particles leaving the Penrose window ("Hawking radiation")
 RAY_SEED = 3
 RAY_TRAVEL = 750  # px a particle covers in one flight (most leave the banner sooner)
 RAY_FLIGHT = 0.7  # share of each particle's cycle spent flying; the rest it is dark
 PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
-PILL_X0, PILL_Y, PILL_H = 412, 226, 36
+NAME_X, TAG_X = 430, 432
+PILL_X0, PILL_Y, PILL_H = 432, 226, 36
 
 
 def _pill_layout():
@@ -72,7 +73,7 @@ def _pill_layout():
 
 
 # Generous text extents (px): name 54px/800 at baseline 148, tagline 22px at baseline 192, then the pills.
-TEXT_BOXES = [(410, 100, 1050, 162), (412, 172, 905, 198)] + [
+TEXT_BOXES = [(NAME_X, 100, NAME_X + 640, 162), (TAG_X, 172, TAG_X + 493, 198)] + [
     (x, PILL_Y, x + w, PILL_Y + PILL_H) for x, w, _, _ in _pill_layout()]
 
 
@@ -149,8 +150,7 @@ def _rays():
     masks = _mask_boxes()
     out, used = [], set()
     while len(out) < RAYS:
-        # most radiation heads into the open right side; some leaves every other way
-        a = rnd.uniform(-math.radians(80), math.radians(80)) if rnd.random() < 0.75 else rnd.uniform(0, 2 * math.pi)
+        a = rnd.uniform(0, 2 * math.pi)  # emitted evenly all around the rim
         d = radius + rnd.uniform(14, 30)
         x, y = int((cx + d * math.cos(a)) // CELL), int((cy + d * math.sin(a)) // CELL)
         if not (0 <= x < 1200 // CELL and 0 <= y < 340 // CELL):
@@ -229,8 +229,8 @@ def render_banner(theme: str) -> str:
             f'<rect class="bn-bg" width="1200" height="340"/>\n'
             '<rect width="1200" height="340" fill="url(#grid)"/>\n'
             f'<defs>{mask}</defs><g shape-rendering="crispEdges">{rad}{cells}</g>\n'
-            '<text class="bn-name" x="410" y="148">Andelib Taref Ababa</text>\n'
-            f'<text class="bn-tag" x="412" y="192">{esc(TAGLINE)}</text>\n'
+            f'<text class="bn-name" x="{NAME_X}" y="148">Andelib Taref Ababa</text>\n'
+            f'<text class="bn-tag" x="{TAG_X}" y="192">{esc(TAGLINE)}</text>\n'
             f"{pill_svg}\n</svg>\n")
 
 

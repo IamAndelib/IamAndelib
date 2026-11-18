@@ -92,7 +92,7 @@ def test_banner_cells_avoid_text():
 
 def test_text_boxes_cover_pills():
     assert len(bs.TEXT_BOXES) == 5  # name, tagline, three pills
-    assert bs.TEXT_BOXES[2][0] == 412 and bs.TEXT_BOXES[2][1] == 226
+    assert bs.TEXT_BOXES[2][0] == bs.PILL_X0 and bs.TEXT_BOXES[2][1] == 226
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
@@ -302,8 +302,15 @@ def test_radiation_random_and_not_crowded(theme):
     assert len({p["step"] for p in parts}) >= 8  # many directions, not a few beams
     counts = [len(_flying(parts, t / 2, masks)) for t in range(600)]  # 5 minutes, every 0.5 s
     assert max(counts) <= 18 and 5 <= sum(counts) / len(counts) <= 11
-    right = sum(1 for p in parts if p["step"][0] > 0)
-    assert right >= 0.6 * len(parts)  # most of it flows across the open right side
+    left = sum(1 for p in parts if p["step"][0] < 0)
+    assert 0.25 <= left / len(parts) <= 0.6  # emitted all around, not mostly to the right
+
+
+def test_window_leaves_room_on_the_left():
+    # radiation needs space to travel on every side of the window, not just the right
+    cx, cy, r = penrose.WINDOW
+    assert cx - r >= 70
+    assert min(x0 for x0, _, _, _ in bs.TEXT_BOXES) - (cx + r) >= 40  # and a clear gap before the text
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
