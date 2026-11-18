@@ -15,7 +15,7 @@
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
     "stars": 34,
-    "downloads": 433
+    "downloads": 434
   },
   {
     "slug": "tessera",
@@ -107,7 +107,7 @@
     "credit": null,
     "logo": "assets/icons/projects/window-geometry-restore.svg",
     "stars": 3,
-    "downloads": 49
+    "downloads": 52
   },
   {
     "slug": "redux-video-player",
