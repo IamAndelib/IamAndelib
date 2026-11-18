@@ -109,7 +109,7 @@ def test_themes_differ_in_background():
 
 
 def test_theme_keys():
-    keys = "bg surface surface2 border fg muted frog frog_deep lily kde link pond_a g0 g1 g2 g3 g4".split()
+    keys = "bg surface surface2 border fg muted frog frog_deep lily kde link pond_a grid g0 g1 g2 g3 g4".split()
     for t in THEME_NAMES:
         for k in keys:
             assert re.fullmatch(r"#[0-9a-fA-F]{6}", THEMES[t][k]), (t, k)
@@ -196,3 +196,20 @@ def test_banner_css_matches_simulation(theme):
     s = outputs(theme)["banner"]
     for gen, frame in enumerate(bs.banner_frames()):
         assert _css_state(s, gen) == set(frame), gen
+
+
+def _contrast(a, b):
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    hi, lo = sorted([lum(a), lum(b)], reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+@pytest.mark.parametrize("theme,minimum", [("dark", 1.08), ("light", 1.12)])
+def test_banner_grid_visible(theme, minimum):
+    t = THEMES[theme]
+    assert _contrast(t["grid"], t["pond_a"]) >= minimum
+    s = outputs(theme)["banner"]
+    assert f".bn-grid{{fill:{t['grid']}}}" in s

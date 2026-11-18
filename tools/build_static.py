@@ -116,7 +116,7 @@ def render_banner(theme: str) -> str:
                      f'<text class="bn-pilltext" x="{px+28}" y="249">{esc(text)}</text>')
     cells, keyframes = _life_cells(t)
     css = f"""
-.bn-bg{{fill:{t['pond_a']}}} .bn-grid{{fill:{t['g0']};opacity:.45}}
+.bn-bg{{fill:{t['pond_a']}}} .bn-grid{{fill:{t['grid']}}}
 .c{{fill:{t['g3']}}} .off{{opacity:0}}
 .bn-name{{fill:{t['fg']};font:800 54px {FONT};letter-spacing:-.5px}}
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
