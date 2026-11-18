@@ -1,5 +1,6 @@
 """Build the standalone banner, skills strip and link-button SVGs (dark + light)."""
 import html
+import random
 import re
 import sys
 from pathlib import Path
@@ -52,7 +53,8 @@ def _head(w, h, label, t):
 CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
 FRAME_S = 0.2  # seconds per frame of the Penrose zoom
 TAGLINE = "Open source software developer"
-STARS, GLOWS = 30, 6  # twinkling cells across the empty banner; GLOWS of them get a soft 4-cell halo
+STARS, GLOWS = 48, 10  # hidden star cells that each flash briefly on their own cycle; GLOWS get a soft halo
+STAR_SEED = 20  # picked from 120 seeds: at most 9 stars lit at once over 10 minutes (~4 on average)
 PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
 PILL_X0, PILL_Y, PILL_H = 412, 226, 36
 
@@ -122,9 +124,12 @@ def _zoom_cells(theme):
 
 
 def _stars():
-    """Scattered grid cells that slowly fade in and out: (cell x, cell y, duration s, delay s, has halo)."""
-    import random
-    rnd = random.Random(11)
+    """Star cells that each flash once per own cycle: (cell x, cell y, cycle s, delay s, has halo).
+
+    Every star has a different cycle (10-24 s), so the combined pattern effectively never repeats: stars
+    seem to pop up at random places, a handful at a time.
+    """
+    rnd = random.Random(STAR_SEED)
     cx, cy, radius = penrose.WINDOW
     cols, rows = 1200 // CELL, 340 // CELL
 
@@ -137,25 +142,27 @@ def _stars():
         return abs(complex((x + 0.5) * CELL - cx, (y + 0.5) * CELL - cy)) >= radius + 12 + pad * CELL * 1.5
 
     out, tries = [], 0
-    while len(out) < STARS and tries < 20000:
+    while len(out) < STARS and tries < 50000:
         tries += 1
         x, y = rnd.randrange(cols), rnd.randrange(rows)
         glow = sum(o[4] for o in out) < GLOWS and rnd.random() < 0.3
-        if not clear(x, y, 1 if glow else 0) or any(abs(x - o[0]) + abs(y - o[1]) < 9 for o in out):
+        if not clear(x, y, 1 if glow else 0) or any(abs(x - o[0]) + abs(y - o[1]) < 6 for o in out):
             continue
-        dur = round(rnd.uniform(4, 10), 1)
-        out.append((x, y, dur, round(-rnd.uniform(0, dur), 1), glow))
+        cycle = round(rnd.uniform(10, 24), 1)
+        if any(cycle == o[2] for o in out):  # equal cycles would flash in lockstep forever
+            continue
+        out.append((x, y, cycle, round(-rnd.uniform(0, cycle), 1), glow))
     return out
 
 
-def _star_rects():
-    sq = lambda x, y, cls, dur, delay: (f'<rect class="{cls}" x="{x * CELL + 1}" y="{y * CELL + 1}" width="{CELL - 2}" '
-                                        f'height="{CELL - 2}" style="animation-duration:{dur:g}s;animation-delay:{delay:g}s"/>')
+def _star_paths():
+    sq = lambda x, y: f"M{x * CELL + 1} {y * CELL + 1}h{CELL - 2}v{CELL - 2}h-{CELL - 2}z"
     out = ""
-    for x, y, dur, delay, glow in _stars():
-        out += sq(x, y, "st", dur, delay)
+    for x, y, cycle, delay, glow in _stars():
+        timing = f'style="animation-duration:{cycle:g}s;animation-delay:{delay:g}s"'
+        out += f'<path class="st" {timing} d="{sq(x, y)}"/>'
         if glow:
-            out += "".join(sq(x + dx, y + dy, "st halo", dur, delay) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            out += f'<path class="st halo" {timing} d="{"".join(sq(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))}"/>'
     return out
 
 
@@ -176,9 +183,9 @@ def render_banner(theme: str) -> str:
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
 .bn-pill{{fill:{t['bg']};stroke-width:1.5}}
 .bn-pilltext{{font:600 15px {FONT};fill:{t['fg']}}}
-.st{{fill:{fills[1]};opacity:.35;animation:twinkle 6s ease-in-out infinite}} .halo{{animation-name:halo}}
-@keyframes twinkle{{0%,100%{{opacity:.06}}50%{{opacity:.9}}}}
-@keyframes halo{{0%,100%{{opacity:0}}50%{{opacity:.3}}}}
+.st{{fill:{fills[1]};opacity:0;animation:pop 16s ease-in-out infinite}} .halo{{animation-name:pophalo}}
+@keyframes pop{{0%,10%,100%{{opacity:0}}4%{{opacity:.9}}}}
+@keyframes pophalo{{0%,10%,100%{{opacity:0}}4%{{opacity:.3}}}}
 {keyframes}@media (prefers-reduced-motion: reduce){{.c,.st{{animation:none!important}}}}
 """
     return (_head(1200, 340, f"Andelib Taref Ababa, {TAGLINE}", t) + "\n"
@@ -187,7 +194,7 @@ def render_banner(theme: str) -> str:
             f'<rect class="bn-grid" x="1" y="1" width="{CELL - 2}" height="{CELL - 2}" rx="1.5"/></pattern></defs>\n'
             f'<rect class="bn-bg" width="1200" height="340"/>\n'
             '<rect width="1200" height="340" fill="url(#grid)"/>\n'
-            f'<g shape-rendering="crispEdges">{_star_rects()}{cells}</g>\n'
+            f'<g shape-rendering="crispEdges">{_star_paths()}{cells}</g>\n'
             '<text class="bn-name" x="410" y="148">Andelib Taref Ababa</text>\n'
             f'<text class="bn-tag" x="412" y="192">{esc(TAGLINE)}</text>\n'
             f"{pill_svg}\n</svg>\n")

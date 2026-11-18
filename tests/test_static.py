@@ -239,27 +239,58 @@ def test_banner_grid_visible(theme, minimum):
     assert f".bn-grid{{fill:{t['grid']}}}" in s
 
 
-STAR_RE = re.compile(r'<rect class="st( halo)?" x="(\d+)" y="(\d+)" width="8" height="8" style="animation-duration:([\d.]+)s;animation-delay:(-?[\d.]+)s(?:;--p:[\d.]+)?"/>')
+STAR_RE = re.compile(r'<path class="st( halo)?" style="animation-duration:([\d.]+)s;animation-delay:(-?[\d.]+)s" d="([^"]+)"/>')
+
+
+def _stars(svg):
+    """[(is_halo, duration, delay, [cells])] from the star paths."""
+    out = []
+    for halo, dur, delay, d in STAR_RE.findall(svg):
+        assert re.fullmatch(r"(M\d+ \d+h8v8h-8z)+", d), d
+        cells = [((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL) for x, y in re.findall(r"M(\d+) (\d+)", d)]
+        out.append((bool(halo), float(dur), float(delay), cells))
+    return out
+
+
+def _lit(stars, t):
+    """Core stars lit at time t (s): the pop keyframes light a star during 1-9% of its own cycle."""
+    return {tuple(c[0]) for halo, dur, delay, c in stars if not halo
+            for phase in [((t - delay) % dur) / dur] if 0.01 < phase < 0.09} if stars else set()
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
-def test_stars_scattered_not_crowded(theme):
-    s = outputs(theme)["banner"]
-    stars = STAR_RE.findall(s)
+def test_stars_appear_at_random_places_not_crowded(theme):
+    stars = _stars(outputs(theme)["banner"])
     cores = [st for st in stars if not st[0]]
-    assert 22 <= len(cores) <= 40
-    xs = [int(x) for _, x, _, _, _ in cores]
-    assert min(xs) < 400 and max(xs) > 1000  # spread across the banner, not one corner
-    cells = [((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL) for _, x, y, _, _ in stars]
-    assert len(cells) == len(set(cells))  # no overlapping squares
+    assert 40 <= len(cores) <= 80
+    counts = [len(_lit(stars, t / 2)) for t in range(0, 600)]  # 5 minutes, every 0.5 s
+    assert max(counts) <= 10 and 2 <= sum(counts) / len(counts) <= 8  # a handful at a time
+    assert min(counts) >= 0
+    # where they show up keeps changing: lit sets 10 s apart rarely share a star
+    overlap = [len(_lit(stars, t) & _lit(stars, t + 10)) for t in range(0, 300, 5)]
+    assert sum(overlap) / len(overlap) < 1
+    xs = [c[3][0][0] for c in cores]
+    assert min(xs) * bs.CELL < 400 and max(xs) * bs.CELL > 1000  # spread across the banner
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_star_timing_never_lines_up(theme):
+    stars = _stars(outputs(theme)["banner"])
+    durs = [d for halo, d, _, _ in stars if not halo]
+    assert len(set(durs)) >= 0.8 * len(durs)  # distinct cycles: the overall pattern doesn't visibly repeat
+    assert min(durs) >= 8 and max(durs) <= 30
+    s = outputs(theme)["banner"]
+    assert "@keyframes pop" in s and "ease-in-out" in s
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
 def test_stars_avoid_text_and_window(theme):
     s = outputs(theme)["banner"]
     cx, cy, r = penrose.WINDOW
-    for _, x, y, _, _ in STAR_RE.findall(s):
-        x0, y0 = int(x) - 1, int(y) - 1
+    cells = [c for *_, cs in _stars(s) for c in cs]
+    assert len(cells) == len(set(cells))  # no overlapping squares
+    for x, y in cells:
+        x0, y0 = x * bs.CELL, y * bs.CELL
         x1, y1 = x0 + bs.CELL, y0 + bs.CELL
         assert 0 <= x0 and x1 <= 1200 and 0 <= y0 and y1 <= 340
         for bx0, by0, bx1, by1 in bs.TEXT_BOXES:
@@ -268,11 +299,9 @@ def test_stars_avoid_text_and_window(theme):
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
-def test_stars_twinkle_softly_and_respect_reduced_motion(theme):
+def test_stars_hidden_under_reduced_motion(theme):
     s = outputs(theme)["banner"]
-    assert "@keyframes twinkle" in s and "ease-in-out" in s
-    durs = {float(d) for *_, d, _ in STAR_RE.findall(s)}
-    assert len(durs) > 5 and min(durs) >= 3 and max(durs) <= 12  # unsynchronised, slow
+    assert re.search(r"\.st\{[^}]*opacity:0[;}]", s)  # base state: dark, so a static banner shows no stars
     m = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\}\s*\}", s, re.S)
     assert ".st" in m.group(1)
 
