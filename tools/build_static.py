@@ -1,12 +1,13 @@
 """Build the standalone banner, skills strip and link-button SVGs (dark + light)."""
+import functools
 import html
-import random
 import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from theme import FONT, THEMES  # noqa: E402
+import life  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
@@ -49,50 +50,87 @@ def _head(w, h, label, t):
             f'role="img" aria-label="{esc(label)}">')
 
 
-def render_banner(theme: str, mascot_svg: str) -> str:
-    t = THEMES[theme]
-    mascot = re.sub(r"<\?xml[^>]*\?>", "", mascot_svg).strip()
-    root = re.match(r"<svg\b[^>]*>", mascot).group(0)
-    new_root = re.sub(r'\s(?:width|height|x|y)="[^"]*"', "", root)
-    new_root = new_root.replace("<svg", '<svg x="40" y="6" width="300" height="300"', 1)
-    mascot = new_root + mascot[len(root):]
-    pills = [("KDE Plasma tools", t["kde"]), ("Android apps", t["frog"]), ("Linux fixes & packaging", "#d29922")]
-    px, pill_svg = 412, ""
-    for text, color in pills:
+CELL = 10  # banner Life cell pitch in px (8 px square + 2 px gap)
+GUN_AT = (1, 7)  # gun box top-left, in cells; stream leaves through the bottom edge left of the pills
+GEN_S = 0.25  # seconds per generation
+PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
+PILL_X0, PILL_Y, PILL_H = 412, 226, 36
+
+
+def _pill_layout():
+    x, out = PILL_X0, []
+    for text, key in PILLS:
         w = round(len(text) * 8.4 + 34)
-        pill_svg += (f'<rect class="bn-pill" x="{px}" y="226" width="{w}" height="36" rx="18" style="stroke:{color}"/>'
+        out.append((x, w, text, key))
+        x += w + 10
+    return out
+
+
+# Generous text extents (px): name 54px/800 at baseline 148, tagline 22px at baseline 192, then the pills.
+TEXT_BOXES = [(410, 100, 1050, 162), (412, 172, 905, 198)] + [
+    (x, PILL_Y, x + w, PILL_Y + PILL_H) for x, w, _, _ in _pill_layout()]
+
+
+@functools.lru_cache(maxsize=None)
+def banner_frames():
+    """One loop of the glider gun in banner cell coordinates: 31 frames, frame 0 == frame 30."""
+    gx, gy = GUN_AT
+    cols, rows = 1200 // CELL, 340 // CELL
+    seed = frozenset((x + gx, y + gy) for x, y in life.GOSPER_GUN)
+    return tuple(life.steady_cycle(seed, warmup=300, period=30,
+                                   keep=lambda x, y: 0 <= x < cols and 0 <= y < rows))
+
+
+def _life_cells(t):
+    frames = banner_frames()[:-1]
+    n = len(frames)
+    canon, rects = {}, []  # canonical timeline -> keyframes name
+    for cx, cy in sorted(set().union(*frames), key=lambda c: (c[1], c[0])):
+        tl = tuple((cx, cy) in f for f in frames)
+        cls = "c" if tl[0] else "c off"
+        style = ""
+        if not all(tl):
+            # share one @keyframes between timelines that are time-shifts of each other
+            rots = [tl[s:] + tl[:s] for s in range(n)]
+            key = min(rots)
+            shift = rots.index(key)
+            if key not in canon:
+                canon[key] = f"k{len(canon)}"
+            style = f' style="animation:{canon[key]} {n * GEN_S:g}s step-end infinite;animation-delay:{-((n - shift) % n) * GEN_S:g}s"'
+        rects.append(f'<rect class="{cls}" x="{cx * CELL + 1}" y="{cy * CELL + 1}" width="{CELL - 2}" height="{CELL - 2}"{style}/>')
+    kf = ""
+    for key, name in canon.items():
+        stops = [f"{i * 100 / n:.3f}".rstrip("0").rstrip(".") + f"%{{opacity:{int(v)}}}"
+                 for i, v in enumerate(key) if i == 0 or v != key[i - 1]]
+        kf += f"@keyframes {name}{{{''.join(stops)}100%{{opacity:{int(key[0])}}}}}\n"
+    return "".join(rects), kf
+
+
+def render_banner(theme: str) -> str:
+    t = THEMES[theme]
+    pill_svg = ""
+    for px, w, text, key in _pill_layout():
+        color = t[key] if key else "#d29922"
+        pill_svg += (f'<rect class="bn-pill" x="{px}" y="{PILL_Y}" width="{w}" height="{PILL_H}" rx="18" style="stroke:{color}"/>'
                      f'<circle cx="{px+17}" cy="244" r="4" style="fill:{color}"/>'
                      f'<text class="bn-pilltext" x="{px+28}" y="249">{esc(text)}</text>')
-        px += w + 10
-    rnd = random.Random(7)
-    ff = "".join(
-        f'<rect class="ff" x="{rnd.randint(380,1170)}" y="{rnd.choice([rnd.randint(16,80), rnd.randint(282,326)])}" '
-        f'width="9" height="9" rx="2" style="animation-delay:{rnd.uniform(0,4):.1f}s"/>' for _ in range(22))
+    cells, keyframes = _life_cells(t)
     css = f"""
-.bn-bg{{fill:{t['pond_a']}}} .bn-water{{fill:{t['pond_b']}}}
-.bn-ripple{{fill:none;stroke:{t['ripple']};stroke-width:2;transform-box:fill-box;transform-origin:center;animation:ripple 6s ease-out infinite}}
-.r2{{animation-delay:2s}} .r3{{animation-delay:4s}}
-.bn-pad{{fill:{t['pad']}}} .bn-vein{{stroke:{t['pad_vein']};stroke-width:3;fill:none}}
+.bn-bg{{fill:{t['pond_a']}}} .bn-grid{{fill:{t['g0']};opacity:.45}}
+.c{{fill:{t['g3']}}} .off{{opacity:0}}
 .bn-name{{fill:{t['fg']};font:800 54px {FONT};letter-spacing:-.5px}}
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
 .bn-pill{{fill:{t['bg']};stroke-width:1.5}}
 .bn-pilltext{{font:600 15px {FONT};fill:{t['fg']}}}
-.ff{{fill:{t['g3']};animation:twinkle 4s ease-in-out infinite}}
-.frog-bob{{animation:bob 5s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}}
-@keyframes ripple{{0%{{opacity:.9;transform:scale(.4)}}100%{{opacity:0;transform:scale(1.25)}}}}
-@keyframes twinkle{{0%,100%{{opacity:.15}}50%{{opacity:1}}}}
-@keyframes bob{{0%,100%{{transform:translateY(0)}}50%{{transform:translateY(-6px)}}}}
-@media (prefers-reduced-motion: reduce){{.bn-ripple,.ff,.frog-bob{{animation:none}}}}
+{keyframes}@media (prefers-reduced-motion: reduce){{.c{{animation:none!important}}}}
 """
     return (_head(1200, 340, "Andelib Taref Ababa, Linux desktop hacker and Android developer", t) + "\n"
             f"<style>{css}</style>\n"
+            f'<defs><pattern id="grid" width="{CELL}" height="{CELL}" patternUnits="userSpaceOnUse">'
+            f'<rect class="bn-grid" x="1" y="1" width="{CELL - 2}" height="{CELL - 2}" rx="1.5"/></pattern></defs>\n'
             f'<rect class="bn-bg" width="1200" height="340"/>\n'
-            '<path class="bn-water" d="M0 250 C 200 232, 400 268, 600 250 S 1000 232, 1200 250 V340 H0Z"/>\n'
-            '<ellipse class="bn-ripple" cx="190" cy="300" rx="190" ry="34"/><ellipse class="bn-ripple r2" cx="190" cy="300" rx="190" ry="34"/><ellipse class="bn-ripple r3" cx="190" cy="300" rx="190" ry="34"/>\n'
-            '<path class="bn-pad" d="M190 270 C 300 270, 335 290, 330 304 C 322 324, 250 332, 190 332 C 110 332, 52 322, 50 304 C 48 288, 92 270, 172 270 L 186 298 Z"/>\n'
-            '<path class="bn-vein" d="M186 298 L 110 316 M186 298 L 262 318 M186 298 L 300 296 M186 298 L 76 296"/>\n'
-            f"{ff}\n"
-            f'<g class="frog-bob">{mascot}</g>\n'
+            '<rect width="1200" height="340" fill="url(#grid)"/>\n'
+            f'<g shape-rendering="crispEdges">{cells}</g>\n'
             '<text class="bn-name" x="410" y="148">Andelib Taref Ababa</text>\n'
             '<text class="bn-tag" x="412" y="192">Linux desktop hacker · Android developer</text>\n'
             f"{pill_svg}\n</svg>\n")
@@ -142,11 +180,10 @@ def render_link(name: str, theme: str) -> str:
 
 
 def main() -> int:
-    mascot = (ASSETS / "mascot" / "frog.svg").read_text()
     for d in ("banner", "skills", "links"):
         (OUT / d).mkdir(parents=True, exist_ok=True)
     for theme in THEMES:
-        (OUT / "banner" / f"banner-{theme}.svg").write_text(render_banner(theme, mascot))
+        (OUT / "banner" / f"banner-{theme}.svg").write_text(render_banner(theme))
         (OUT / "skills" / f"skills-{theme}.svg").write_text(render_skills(theme))
         for n in LINKS:
             (OUT / "links" / f"{n}-{theme}.svg").write_text(render_link(n, theme))

@@ -10,11 +10,10 @@ import pytest  # noqa: E402
 
 THEME_NAMES = ["dark", "light"]
 LINK_NAMES = ["github", "gitlab", "linkedin", "email", "kofi"]
-MASCOT = (ROOT / "assets/mascot/frog.svg").read_text()
 
 
 def outputs(theme):
-    out = {"banner": bs.render_banner(theme, MASCOT), "skills": bs.render_skills(theme)}
+    out = {"banner": bs.render_banner(theme), "skills": bs.render_skills(theme)}
     for n in LINK_NAMES:
         out[f"link-{n}"] = bs.render_link(n, theme)
     return out
@@ -47,7 +46,56 @@ def test_banner_content_and_motion(theme):
     m = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\}\s*\}", s, re.S)
     assert m and "animation:none" in m.group(1).replace(" ", "")
     # banner must be deterministic
-    assert s == bs.render_banner(theme, MASCOT)
+    assert s == bs.render_banner(theme)
+
+
+CELL_RE = re.compile(r'<rect class="(c[^"]*)" x="([\d.]+)" y="([\d.]+)" width="(\d+)" height="\4"')
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_banner_has_no_mascot(theme):
+    s = outputs(theme)["banner"]
+    assert "frog-bob" not in s and "<image" not in s
+    assert s.count("<svg") == 1
+
+
+def test_banner_loop_seamless():
+    frames = bs.banner_frames()
+    assert len(frames) == 31
+    assert frames[0] == frames[-1]
+
+
+def test_banner_cells_avoid_text():
+    m = 8
+    for f in bs.banner_frames():
+        for cx, cy in f:
+            x0, y0 = cx * bs.CELL, cy * bs.CELL
+            x1, y1 = x0 + bs.CELL, y0 + bs.CELL
+            assert 0 <= x0 and x1 <= 1200 and 0 <= y0 and y1 <= 340, (cx, cy)
+            for bx0, by0, bx1, by1 in bs.TEXT_BOXES:
+                assert x1 <= bx0 - m or x0 >= bx1 + m or y1 <= by0 - m or y0 >= by1 + m, ((cx, cy), (bx0, by0, bx1, by1))
+
+
+def test_text_boxes_cover_pills():
+    assert len(bs.TEXT_BOXES) == 5  # name, tagline, three pills
+    assert bs.TEXT_BOXES[2][0] == 412 and bs.TEXT_BOXES[2][1] == 226
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_banner_draws_every_live_cell(theme):
+    s = outputs(theme)["banner"]
+    cells = {(round((float(x) - 1) / bs.CELL), round((float(y) - 1) / bs.CELL)): cls for cls, x, y, _ in CELL_RE.findall(s)}
+    frames = bs.banner_frames()
+    assert set(cells) == set().union(*frames)
+    # without animation (reduced motion) the visible cells are exactly frame 0: gun plus gliders in flight
+    shown = {c for c, cls in cells.items() if "off" not in cls.split()}
+    assert shown == frames[0] and len(shown) > 36
+    assert THEMES[theme]["g3"] in s
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_banner_size_budget(theme):
+    assert len(outputs(theme)["banner"].encode()) <= 80_000
 
 
 def test_themes_differ_in_background():
@@ -61,7 +109,7 @@ def test_themes_differ_in_background():
 
 
 def test_theme_keys():
-    keys = "bg surface surface2 border fg muted frog frog_deep lily kde link pond_a pond_b ripple pad pad_vein g0 g1 g2 g3 g4".split()
+    keys = "bg surface surface2 border fg muted frog frog_deep lily kde link pond_a g0 g1 g2 g3 g4".split()
     for t in THEME_NAMES:
         for k in keys:
             assert re.fullmatch(r"#[0-9a-fA-F]{6}", THEMES[t][k]), (t, k)
@@ -122,3 +170,29 @@ def test_main_writes_files(tmp_path, monkeypatch):
         assert (tmp_path / "skills" / f"skills-{t}.svg").exists()
         for n in LINK_NAMES:
             assert (tmp_path / "links" / f"{n}-{t}.svg").exists()
+
+
+def _css_state(svg, gen):
+    """Which cells the CSS shows during generation `gen` (evaluates our step-end keyframes)."""
+    kfs = {}
+    for name, body in re.findall(r"@keyframes (k\d+)\{(.*?)\}\n", svg):
+        kfs[name] = [(float(p), o == "1") for p, o in re.findall(r"([\d.]+)%\{opacity:(\d)\}", body)]
+    shown = set()
+    for m in re.finditer(r'<rect class="(c[^"]*)" x="([\d.]+)" y="([\d.]+)"[^>]*?(?:style="animation:(k\d+) ([\d.]+)s step-end infinite;animation-delay:(-?[\d.]+)s")?/>', svg):
+        cls, x, y, name, dur, delay = m.groups()
+        cell = (round((float(x) - 1) / bs.CELL), round((float(y) - 1) / bs.CELL))
+        if not name:
+            on = "off" not in cls.split()
+        else:
+            t = (((gen + 0.5) * bs.GEN_S - float(delay)) % float(dur)) / float(dur) * 100  # mid-generation
+            on = [o for p, o in kfs[name] if p <= t][-1]
+        if on:
+            shown.add(cell)
+    return shown
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_banner_css_matches_simulation(theme):
+    s = outputs(theme)["banner"]
+    for gen, frame in enumerate(bs.banner_frames()):
+        assert _css_state(s, gen) == set(frame), gen
