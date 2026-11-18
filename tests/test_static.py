@@ -1,4 +1,4 @@
-import re, sys, xml.etree.ElementTree as ET
+import math, re, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -239,71 +239,109 @@ def test_banner_grid_visible(theme, minimum):
     assert f".bn-grid{{fill:{t['grid']}}}" in s
 
 
-STAR_RE = re.compile(r'<path class="st( halo)?" style="animation-duration:([\d.]+)s;animation-delay:(-?[\d.]+)s" d="([^"]+)"/>')
+RAD_RE = re.compile(r'<use href="#t(\d+)" class="rad (r\1)" x="(\d+)" y="(\d+)" '
+                    r'style="animation-duration:([\d.]+)s;animation-delay:(-?[\d.]+)s"/>')
 
 
-def _stars(svg):
-    """[(is_halo, duration, delay, [cells])] from the star paths."""
+def _radiation(svg):
+    """Particles as dicts, with their direction's keyframes: start cell, step vector (cells), steps, flight share."""
+    kf = {}
+    for name, flight, ax, ay in re.findall(
+            r"@keyframes (r\d+)\{0%\{transform:translate\(0,0\);opacity:[\d.]+\}([\d.]+)%\{transform:translate\((-?\d+)px,(-?\d+)px\);opacity:0\}", svg):
+        kf[name] = (float(flight) / 100, int(ax), int(ay))
+    steps = dict(re.findall(r"\.(r\d+)\{animation-name:\1;animation-timing-function:steps\((\d+)\)\}", svg))
     out = []
-    for halo, dur, delay, d in STAR_RE.findall(svg):
-        assert re.fullmatch(r"(M\d+ \d+h8v8h-8z)+", d), d
-        cells = [((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL) for x, y in re.findall(r"M(\d+) (\d+)", d)]
-        out.append((bool(halo), float(dur), float(delay), cells))
+    for _, name, x, y, dur, delay in RAD_RE.findall(svg):
+        flight, ax, ay = kf[name]
+        k = int(steps[name])
+        assert ax % (k * bs.CELL) == 0 and ay % (k * bs.CELL) == 0, name  # every step lands on the grid
+        out.append(dict(cell=((int(x) - 1) // bs.CELL, (int(y) - 1) // bs.CELL), step=(ax // k // bs.CELL, ay // k // bs.CELL),
+                        steps=k, flight=flight, dur=float(dur), delay=float(delay)))
     return out
 
 
-def _lit(stars, t):
-    """Core stars lit at time t (s): the pop keyframes light a star during 1-9% of its own cycle."""
-    return {tuple(c[0]) for halo, dur, delay, c in stars if not halo
-            for phase in [((t - delay) % dur) / dur] if 0.01 < phase < 0.09} if stars else set()
+def _mask_rects(svg):
+    m = re.search(r'<mask id="nt"[^>]*>(.*?)</mask>', svg, re.S)
+    return [tuple(map(int, r)) for r in re.findall(r'<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="#444"/>', m.group(1))]
+
+
+def _flying(parts, t, masks):
+    """Heads of particles visibly in flight at time t (inside the banner, still bright enough to see)."""
+    out = []
+    for p in parts:
+        phase = ((t - p["delay"]) % p["dur"]) / p["dur"]
+        if phase >= p["flight"]:
+            continue
+        k = int(phase / p["flight"] * p["steps"])  # steps(): holds each step until the next
+        x, y = p["cell"][0] + k * p["step"][0], p["cell"][1] + k * p["step"][1]
+        px, py = x * bs.CELL, y * bs.CELL
+        if 0 <= px < 1200 and 0 <= py < 340 and 1 - k / p["steps"] > 0.15:
+            out.append((x, y))
+    return out
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
-def test_stars_appear_at_random_places_not_crowded(theme):
-    stars = _stars(outputs(theme)["banner"])
-    cores = [st for st in stars if not st[0]]
-    assert 40 <= len(cores) <= 80
-    counts = [len(_lit(stars, t / 2)) for t in range(0, 600)]  # 5 minutes, every 0.5 s
-    assert max(counts) <= 10 and 2 <= sum(counts) / len(counts) <= 8  # a handful at a time
-    assert min(counts) >= 0
-    # where they show up keeps changing: lit sets 10 s apart rarely share a star
-    overlap = [len(_lit(stars, t) & _lit(stars, t + 10)) for t in range(0, 300, 5)]
-    assert sum(overlap) / len(overlap) < 1
-    xs = [c[3][0][0] for c in cores]
-    assert min(xs) * bs.CELL < 400 and max(xs) * bs.CELL > 1000  # spread across the banner
-
-
-@pytest.mark.parametrize("theme", THEME_NAMES)
-def test_star_timing_never_lines_up(theme):
-    stars = _stars(outputs(theme)["banner"])
-    durs = [d for halo, d, _, _ in stars if not halo]
-    assert len(set(durs)) >= 0.8 * len(durs)  # distinct cycles: the overall pattern doesn't visibly repeat
-    assert min(durs) >= 8 and max(durs) <= 30
-    s = outputs(theme)["banner"]
-    assert "@keyframes pop" in s and "ease-in-out" in s
-
-
-@pytest.mark.parametrize("theme", THEME_NAMES)
-def test_stars_avoid_text_and_window(theme):
-    s = outputs(theme)["banner"]
+def test_radiation_flows_out_of_the_window(theme):
+    parts = _radiation(outputs(theme)["banner"])
     cx, cy, r = penrose.WINDOW
-    cells = [c for *_, cs in _stars(s) for c in cs]
-    assert len(cells) == len(set(cells))  # no overlapping squares
-    for x, y in cells:
-        x0, y0 = x * bs.CELL, y * bs.CELL
-        x1, y1 = x0 + bs.CELL, y0 + bs.CELL
-        assert 0 <= x0 and x1 <= 1200 and 0 <= y0 and y1 <= 340
-        for bx0, by0, bx1, by1 in bs.TEXT_BOXES:
-            assert x1 <= bx0 - 12 or x0 >= bx1 + 12 or y1 <= by0 - 12 or y0 >= by1 + 12, (x, y)
-        assert abs(complex(x0 + 5 - cx, y0 + 5 - cy)) >= r + 12, (x, y)
+    assert 30 <= len(parts) <= 60
+    for p in parts:
+        sx, sy = (p["cell"][0] + 0.5) * bs.CELL - cx, (p["cell"][1] + 0.5) * bs.CELL - cy
+        assert r + 8 <= abs(complex(sx, sy)) <= r + 40  # born just outside the rim
+        radial = math.atan2(sy, sx)
+        heading = math.atan2(p["step"][1], p["step"][0])
+        assert abs((heading - radial + math.pi) % (2 * math.pi) - math.pi) < math.radians(15)  # heading outward
+        assert max(abs(p["step"][0]), abs(p["step"][1])) <= 3
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)
-def test_stars_hidden_under_reduced_motion(theme):
+def test_radiation_random_and_not_crowded(theme):
     s = outputs(theme)["banner"]
-    assert re.search(r"\.st\{[^}]*opacity:0[;}]", s)  # base state: dark, so a static banner shows no stars
+    parts, masks = _radiation(s), _mask_rects(s)
+    assert len({p["dur"] for p in parts}) >= 0.8 * len(parts)  # own cycles: emission never visibly repeats
+    assert len({p["step"] for p in parts}) >= 8  # many directions, not a few beams
+    counts = [len(_flying(parts, t / 2, masks)) for t in range(600)]  # 5 minutes, every 0.5 s
+    assert max(counts) <= 18 and 5 <= sum(counts) / len(counts) <= 11
+    right = sum(1 for p in parts if p["step"][0] > 0)
+    assert right >= 0.6 * len(parts)  # most of it flows across the open right side
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_radiation_dims_behind_text(theme):
+    # particles keep flowing behind the text but at ~27% (mask #444), so the text stays easy to read
+    s = outputs(theme)["banner"]
+    assert '<g mask="url(#nt)"' in s
+    masks = _mask_rects(s)
+    for bx0, by0, bx1, by1 in bs.TEXT_BOXES:
+        assert any(mx <= bx0 - 12 and my <= by0 - 12 and mx + mw >= bx1 + 12 and my + mh >= by1 + 12
+                   for mx, my, mw, mh in masks), (bx0, by0)
+    assert all(v % bs.CELL == 0 for m in masks for v in m)  # whole cells only: no half-hidden squares
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_radiation_has_fading_trail(theme):
+    s = outputs(theme)["banner"]
+    steps = dict(re.findall(r"\.(r\d+)\{animation-name:\1;animation-timing-function:steps\((\d+)\)\}", s))
+    ends = {n: (int(ax), int(ay)) for n, ax, ay in re.findall(r"@keyframes (r\d+)\{0%\{[^}]*\}[\d.]+%\{transform:translate\((-?\d+)px,(-?\d+)px\)", s)}
+    trails = re.findall(r'<g id="t(\d+)">(.*?)</g>', s)
+    assert trails
+    for n, body in trails:
+        hop = (ends[f"r{n}"][0] // int(steps[f"r{n}"]), ends[f"r{n}"][1] // int(steps[f"r{n}"]))
+        rects = re.findall(r'<rect x="(-?\d+)" y="(-?\d+)" width="8" height="8"(?: opacity="([\d.]+)")?/>', body)
+        assert len(rects) == 3
+        ops = [float(o or 1) for _, _, o in rects]
+        assert ops[0] > ops[1] > ops[2] > 0  # head, then two fading ghosts
+        pos = [(int(x), int(y)) for x, y, _ in rects]
+        assert pos[0] == (0, 0)
+        assert pos[1] == (-hop[0], -hop[1]) and pos[2] == (-2 * hop[0], -2 * hop[1])  # one hop back each
+
+
+@pytest.mark.parametrize("theme", THEME_NAMES)
+def test_radiation_hidden_under_reduced_motion(theme):
+    s = outputs(theme)["banner"]
+    assert re.search(r"\.rad\{[^}]*opacity:0[;}]", s)
     m = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\}\s*\}", s, re.S)
-    assert ".st" in m.group(1)
+    assert ".rad" in m.group(1)
 
 
 @pytest.mark.parametrize("theme", THEME_NAMES)

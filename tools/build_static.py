@@ -1,5 +1,6 @@
 """Build the standalone banner, skills strip and link-button SVGs (dark + light)."""
 import html
+import math
 import random
 import re
 import sys
@@ -53,8 +54,10 @@ def _head(w, h, label, t):
 CELL = penrose.CELL  # banner cell pitch in px (8 px square + 2 px gap)
 FRAME_S = 0.2  # seconds per frame of the Penrose zoom
 TAGLINE = "Open source software developer"
-STARS, GLOWS = 48, 10  # hidden star cells that each flash briefly on their own cycle; GLOWS get a soft halo
-STAR_SEED = 20  # picked from 120 seeds: at most 9 stars lit at once over 10 minutes (~4 on average)
+RAYS = 40  # radiation particles leaving the Penrose window ("Hawking radiation")
+RAY_SEED = 3
+RAY_TRAVEL = 750  # px a particle covers in one flight (most leave the banner sooner)
+RAY_FLIGHT = 0.7  # share of each particle's cycle spent flying; the rest it is dark
 PILLS = [("KDE Plasma tools", "kde"), ("Android apps", "frog"), ("Linux fixes & packaging", None)]
 PILL_X0, PILL_Y, PILL_H = 412, 226, 36
 
@@ -123,47 +126,80 @@ def _zoom_cells(theme):
     return paths, kf
 
 
-def _stars():
-    """Star cells that each flash once per own cycle: (cell x, cell y, cycle s, delay s, has halo).
+def _directions():
+    """Grid-friendly headings: primitive steps of up to 3 cells, so every hop lands exactly on a cell."""
+    return [(dx, dy) for dx in range(-3, 4) for dy in range(-3, 4)
+            if (dx or dy) and math.gcd(dx, dy) == 1]
 
-    Every star has a different cycle (10-24 s), so the combined pattern effectively never repeats: stars
-    seem to pop up at random places, a handful at a time.
-    """
-    rnd = random.Random(STAR_SEED)
+
+def _mask_boxes():
+    """Text boxes grown by 12 px and snapped out to whole cells; radiation dims there (passes behind the text)."""
+    snap_lo = lambda v: (v - 12) // CELL * CELL
+    snap_hi = lambda v: -(-(v + 12) // CELL) * CELL
+    return [(snap_lo(x0), snap_lo(y0), snap_hi(x1) - snap_lo(x0), snap_hi(y1) - snap_lo(y0))
+            for x0, y0, x1, y1 in TEXT_BOXES]
+
+
+def _rays():
+    """Particles: (start cell, step (dx, dy) in cells, cycle s, delay s), each born just outside the window rim
+    at a random angle and heading outward; every cycle is different, so emission never visibly repeats."""
+    rnd = random.Random(RAY_SEED)
     cx, cy, radius = penrose.WINDOW
-    cols, rows = 1200 // CELL, 340 // CELL
-
-    def clear(x, y, pad):  # cell (with `pad` cells of halo around it) avoids text, window and edges
-        x0, y0, x1, y1 = (x - pad) * CELL, (y - pad) * CELL, (x + pad + 1) * CELL, (y + pad + 1) * CELL
-        if x0 < 0 or y0 < 0 or x1 > 1200 or y1 > 340:
-            return False
-        if any(not (x1 <= bx0 - 12 or x0 >= bx1 + 12 or y1 <= by0 - 12 or y0 >= by1 + 12) for bx0, by0, bx1, by1 in TEXT_BOXES):
-            return False
-        return abs(complex((x + 0.5) * CELL - cx, (y + 0.5) * CELL - cy)) >= radius + 12 + pad * CELL * 1.5
-
-    out, tries = [], 0
-    while len(out) < STARS and tries < 50000:
-        tries += 1
-        x, y = rnd.randrange(cols), rnd.randrange(rows)
-        glow = sum(o[4] for o in out) < GLOWS and rnd.random() < 0.3
-        if not clear(x, y, 1 if glow else 0) or any(abs(x - o[0]) + abs(y - o[1]) < 6 for o in out):
+    dirs = _directions()
+    masks = _mask_boxes()
+    out, used = [], set()
+    while len(out) < RAYS:
+        # most radiation heads into the open right side; some leaves every other way
+        a = rnd.uniform(-math.radians(80), math.radians(80)) if rnd.random() < 0.75 else rnd.uniform(0, 2 * math.pi)
+        d = radius + rnd.uniform(14, 30)
+        x, y = int((cx + d * math.cos(a)) // CELL), int((cy + d * math.sin(a)) // CELL)
+        if not (0 <= x < 1200 // CELL and 0 <= y < 340 // CELL):
             continue
-        cycle = round(rnd.uniform(10, 24), 1)
-        if any(cycle == o[2] for o in out):  # equal cycles would flash in lockstep forever
+        px, py = x * CELL, y * CELL
+        if any(mx <= px < mx + mw and my <= py < my + mh for mx, my, mw, mh in masks):
             continue
-        out.append((x, y, cycle, round(-rnd.uniform(0, cycle), 1), glow))
+        sx, sy = px + CELL / 2 - cx, py + CELL / 2 - cy
+        if not radius + 8 <= math.hypot(sx, sy) <= radius + 40:
+            continue
+        radial = math.atan2(sy, sx)
+        step = min(dirs, key=lambda v: abs((math.atan2(v[1], v[0]) - radial + math.pi) % (2 * math.pi) - math.pi))
+        cycle = round(rnd.uniform(10, 20), 1)
+        if cycle in used:
+            continue
+        used.add(cycle)
+        out.append(((x, y), step, cycle, round(-rnd.uniform(0, cycle), 1)))
     return out
 
 
-def _star_paths():
-    sq = lambda x, y: f"M{x * CELL + 1} {y * CELL + 1}h{CELL - 2}v{CELL - 2}h-{CELL - 2}z"
-    out = ""
-    for x, y, cycle, delay, glow in _stars():
-        timing = f'style="animation-duration:{cycle:g}s;animation-delay:{delay:g}s"'
-        out += f'<path class="st" {timing} d="{sq(x, y)}"/>'
-        if glow:
-            out += f'<path class="st halo" {timing} d="{"".join(sq(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))}"/>'
-    return out
+def _radiation(theme):
+    """Particles (each a head with two fading ghosts one hop back), dimmed behind the text, and their CSS."""
+    rays = _rays()
+    names, css, rects, trails = {}, "", "", ""
+    def sq(x, y, opacity=None):
+        op = f' opacity="{opacity}"' if opacity else ""
+        return f'<rect x="{x}" y="{y}" width="{CELL - 2}" height="{CELL - 2}"{op}/>'
+
+    for (x, y), (dx, dy), cycle, delay in rays:
+        if (dx, dy) not in names:
+            n = f"r{len(names)}"
+            names[(dx, dy)] = n
+            k = math.ceil(RAY_TRAVEL / (math.hypot(dx, dy) * CELL))
+            end = f"translate({k * dx * CELL}px,{k * dy * CELL}px)"
+            css += (f".{n}{{animation-name:{n};animation-timing-function:steps({k})}}"
+                    f"@keyframes {n}{{0%{{transform:translate(0,0);opacity:1}}{RAY_FLIGHT * 100:g}%{{transform:{end};opacity:0}}"
+                    f"100%{{transform:{end};opacity:0}}}}\n")
+            hx, hy = dx * CELL, dy * CELL
+            trails += f'<g id="t{n[1:]}">{sq(0, 0)}{sq(-hx, -hy, ".45")}{sq(-2 * hx, -2 * hy, ".2")}</g>'
+        n = names[(dx, dy)]
+        rects += (f'<use href="#t{n[1:]}" class="rad {n}" x="{x * CELL + 1}" y="{y * CELL + 1}" '
+                  f'style="animation-duration:{cycle:g}s;animation-delay:{delay:g}s"/>')
+    mask = ('<mask id="nt" maskUnits="userSpaceOnUse" x="0" y="0" width="1200" height="340">'
+            '<rect width="1200" height="340" fill="#fff"/>'
+            + "".join(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="#444"/>' for x, y, w, h in _mask_boxes())
+            + "</mask>" + trails)
+    fill = THEMES[theme]["lily"] if theme == "dark" else shape_fills(theme)[1]  # brighter glow on dark
+    css = f".rad{{fill:{fill};opacity:0;animation:12s infinite}}\n" + css
+    return mask, f'<g mask="url(#nt)">{rects}</g>', css
 
 
 def render_banner(theme: str) -> str:
@@ -175,6 +211,7 @@ def render_banner(theme: str) -> str:
                      f'<circle cx="{px+17}" cy="244" r="4" style="fill:{color}"/>'
                      f'<text class="bn-pilltext" x="{px+28}" y="249">{esc(text)}</text>')
     cells, keyframes = _zoom_cells(theme)
+    mask, rad, rad_css = _radiation(theme)
     fills = shape_fills(theme)
     css = f"""
 .bn-bg{{fill:{t['pond_a']}}} .bn-grid{{fill:{t['grid']}}}
@@ -183,10 +220,7 @@ def render_banner(theme: str) -> str:
 .bn-tag{{fill:{t['muted']};font:500 22px {FONT}}}
 .bn-pill{{fill:{t['bg']};stroke-width:1.5}}
 .bn-pilltext{{font:600 15px {FONT};fill:{t['fg']}}}
-.st{{fill:{fills[1]};opacity:0;animation:pop 16s ease-in-out infinite}} .halo{{animation-name:pophalo}}
-@keyframes pop{{0%,10%,100%{{opacity:0}}4%{{opacity:.9}}}}
-@keyframes pophalo{{0%,10%,100%{{opacity:0}}4%{{opacity:.3}}}}
-{keyframes}@media (prefers-reduced-motion: reduce){{.c,.st{{animation:none!important}}}}
+{rad_css}{keyframes}@media (prefers-reduced-motion: reduce){{.c,.rad{{animation:none!important}}}}
 """
     return (_head(1200, 340, f"Andelib Taref Ababa, {TAGLINE}", t) + "\n"
             f"<style>{css}</style>\n"
@@ -194,7 +228,7 @@ def render_banner(theme: str) -> str:
             f'<rect class="bn-grid" x="1" y="1" width="{CELL - 2}" height="{CELL - 2}" rx="1.5"/></pattern></defs>\n'
             f'<rect class="bn-bg" width="1200" height="340"/>\n'
             '<rect width="1200" height="340" fill="url(#grid)"/>\n'
-            f'<g shape-rendering="crispEdges">{_star_paths()}{cells}</g>\n'
+            f'<defs>{mask}</defs><g shape-rendering="crispEdges">{rad}{cells}</g>\n'
             '<text class="bn-name" x="410" y="148">Andelib Taref Ababa</text>\n'
             f'<text class="bn-tag" x="412" y="192">{esc(TAGLINE)}</text>\n'
             f"{pill_svg}\n</svg>\n")
