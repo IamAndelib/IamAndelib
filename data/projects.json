@@ -14,8 +14,8 @@
     "status": "released",
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
-    "stars": 36,
-    "downloads": 437
+    "stars": 38,
+    "downloads": 466
   },
   {
     "slug": "tessera",
@@ -52,7 +52,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kpeek.svg",
     "stars": 4,
-    "downloads": 182
+    "downloads": 184
   },
   {
     "slug": "cyberjuke",
