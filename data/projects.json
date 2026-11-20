@@ -14,8 +14,8 @@
     "status": "released",
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
-    "stars": 38,
-    "downloads": 466
+    "stars": 40,
+    "downloads": 508
   },
   {
     "slug": "tessera",
@@ -52,7 +52,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kpeek.svg",
     "stars": 4,
-    "downloads": 184
+    "downloads": 186
   },
   {
     "slug": "cyberjuke",
@@ -71,7 +71,7 @@
     "credit": null,
     "logo": "assets/icons/projects/cyberjuke.png",
     "stars": 5,
-    "downloads": 106
+    "downloads": 109
   },
   {
     "slug": "kde-snap-overlay",
@@ -89,7 +89,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kde-snap-overlay.svg",
     "stars": 2,
-    "downloads": 23
+    "downloads": 24
   },
   {
     "slug": "window-geometry-restore",
