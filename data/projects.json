@@ -15,7 +15,7 @@
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
     "stars": 51,
-    "downloads": 591
+    "downloads": 598
   },
   {
     "slug": "tessera",
@@ -52,7 +52,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kpeek.svg",
     "stars": 4,
-    "downloads": 193
+    "downloads": 194
   },
   {
     "slug": "cyberjuke",
@@ -89,7 +89,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kde-snap-overlay.svg",
     "stars": 2,
-    "downloads": 24
+    "downloads": 25
   },
   {
     "slug": "window-geometry-restore",
@@ -107,7 +107,7 @@
     "credit": null,
     "logo": "assets/icons/projects/window-geometry-restore.svg",
     "stars": 3,
-    "downloads": 60
+    "downloads": 63
   },
   {
     "slug": "redux-video-player",
