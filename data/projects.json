@@ -15,7 +15,7 @@
     "credit": null,
     "logo": "assets/icons/projects/tally.svg",
     "stars": 51,
-    "downloads": 598
+    "downloads": 600
   },
   {
     "slug": "tessera",
@@ -52,7 +52,7 @@
     "credit": null,
     "logo": "assets/icons/projects/kpeek.svg",
     "stars": 4,
-    "downloads": 194
+    "downloads": 196
   },
   {
     "slug": "cyberjuke",
@@ -71,7 +71,7 @@
     "credit": null,
     "logo": "assets/icons/projects/cyberjuke.png",
     "stars": 6,
-    "downloads": 114
+    "downloads": 116
   },
   {
     "slug": "kde-snap-overlay",
